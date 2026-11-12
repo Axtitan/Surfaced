@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Analysis, PlannedDestination, Profile } from "@/lib/types";
 import type { summarise } from "@/lib/score";
 import { jsonLd, llmsTxt } from "@/lib/fixes";
+import { track as trackEvent } from "@vercel/analytics";
 
 type Summary = ReturnType<typeof summarise>;
 type Status = "todo" | "opened" | "submitted" | "live" | "skip";
@@ -102,6 +103,7 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
 
   function openDest(d: PlannedDestination) {
     window.open(d.url, "_blank", "noopener,noreferrer");
+    trackEvent("listing_opened", { type: d.type });
     setTrack((t) => ({ ...t, [d.slug]: t[d.slug] && t[d.slug] !== "todo" ? t[d.slug] : "opened" }));
   }
 

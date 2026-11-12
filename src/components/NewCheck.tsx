@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { Analysis } from "@/lib/types";
+import { track } from "@vercel/analytics";
 import { getProject, projectId, saveProject } from "@/lib/store";
 
 const STEPS = ["Reading your homepage", "Checking what AI crawlers can see", "Working out what buyers ask"];
@@ -35,6 +36,7 @@ export default function NewCheck() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      track("check_started", { claude: !!claude });
       const analysis = data as Analysis;
       const id = projectId(analysis.profile.domain);
       const prev = getProject(id);

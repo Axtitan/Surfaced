@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Analysis, ProviderId, Run } from "@/lib/types";
+import { track } from "@vercel/analytics";
 import { summarise } from "@/lib/score";
 import { getProject, saveProject, type AnswerMode, type Project } from "@/lib/store";
 import ProfileEditor from "./ProfileEditor";
@@ -82,6 +83,7 @@ export default function ProjectView({ id }: { id: string }) {
 
   async function scan() {
     setError(""); setBusy(true); setTotal(0);
+    track("auto_scan_started", { ais: picked.length });
     update({ runs: allRuns.filter((r) => r.via === "paste") });
     abort.current = new AbortController();
     try {

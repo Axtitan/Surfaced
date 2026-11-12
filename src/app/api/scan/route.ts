@@ -9,7 +9,18 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const MAX_RUNS = 80;
-const CONCURRENCY = 6;
+// About three answers in flight per AI. Each provider has its own rate limits, so this scales with the AIs picked.
+const PER_PROVIDER = 3;
+// Stop before the platform kills the function (Vercel Hobby: 300 s), so the scan always ends cleanly.
+const DEADLINE_MS = (Number(process.env.SCAN_DEADLINE_SECONDS) || 270) * 1000;
+
+class OutOfTime extends Error {}
+function before<T>(p: Promise<T>, at: number): Promise<T> {
+  const left = at - Date.now();
+  if (left <= 0) return Promise.reject(new OutOfTime());
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([p, new Promise<T>((_, no) => { timer = setTimeout(() => no(new OutOfTime()), left); })]).finally(() => clearTimeout(timer));
+}
 
 const Body = z.object({
   brand: z.object({
@@ -52,6 +63,7 @@ export async function POST(req: Request) {
     async start(controller) {
       const send = (o: unknown) => controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
       send({ type: "start", total: jobs.length });
+      const deadline = Date.now() + DEADLINE_MS;
       let next = 0;
       const worker = async () => {
         while (next < jobs.length && !req.signal.aborted) {
@@ -61,17 +73,17 @@ export async function POST(req: Request) {
           const base = { id: `${i}`, prompt: j.prompt, provider: j.provider, mode: j.mode, sample: j.sample };
           let run: Run;
           try {
-            const a = await ask(j.provider, j.prompt, j.mode, { brand: brand.name, competitors: brand.competitors, seed: i + 7 * j.sample });
+            const a = await before(ask(j.provider, j.prompt, j.mode, { brand: brand.name, competitors: brand.competitors, seed: i + 7 * j.sample }), deadline);
             const v = judge(brand, a.text, a.sources.map((s) => s.domain));
             run = { ...base, ok: true, ...v, sources: a.sources.slice(0, 20), text: a.text.slice(0, 8000), model: a.model, demo: a.demo, ms: Date.now() - t0 };
           } catch (e) {
-            const msg = e instanceof ProviderError || e instanceof Error ? e.message : "Unknown error";
+            const msg = e instanceof OutOfTime ? "Not answered in time. Ask fewer questions or fewer repeats." : e instanceof ProviderError || e instanceof Error ? e.message : "Unknown error";
             run = { ...base, ok: false, error: msg.slice(0, 300), mentioned: false, cited: false, rank: null, others: [], sources: [], text: "", model: "", ms: Date.now() - t0 };
           }
           send({ type: "run", run });
         }
       };
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, worker));
+      await Promise.all(Array.from({ length: Math.min(PER_PROVIDER * providers.length, jobs.length) }, worker));
       send({ type: "done" });
       controller.close();
     },

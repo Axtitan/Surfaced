@@ -65,9 +65,28 @@ npm run dev                  # http://localhost:3100
 - **Providers:** any provider without a key shows as "not connected". `SURFACED_DEMO=1` simulates answers for
   them, for UI work only. The UI labels these answers and demo mode is ignored in production.
 - **Extension:** in Chrome, open `chrome://extensions`, turn on Developer mode, choose **Load unpacked** and
-  pick `extension/`. Before deploying, add the production domain to `content_scripts.matches` in
+  pick `extension/`. It connects on localhost:3100 and `*.vercel.app`; add a custom domain to `content_scripts.matches` in
   `extension/manifest.json`.
 - **Catalog refresh:** `npm run sync:destinations` pulls the latest Submitlist catalog (it syncs weekly).
+
+## Deploy on Vercel
+
+1. In Vercel, choose **Add New → Project**, import `Axtitan/Surfaced`, and deploy. Vercel detects Next.js; free mode needs no
+   environment variables.
+2. Optional: add the API keys from `.env.example` under **Settings → Environment Variables** to turn on automatic mode.
+   `SURFACED_DEMO` has no effect in production.
+3. Turn on **Analytics** in the project. On Hobby it records page views: the landing page, `/app/new` (checks started) and
+   `/app/p/[id]` (checks opened). The checked domains are stripped from URLs before sending. The `track()` events
+   (`check_started`, `answer_pasted`, `auto_scan_started`, `listing_opened`) only show on Pro.
+
+On the Hobby plan:
+- **Time limit:** functions stop at 300 s, so automatic scans stop at 270 s (`SCAN_DEADLINE_SECONDS`). Unanswered
+  questions are marked and left out of the score. With three answers in flight per AI, a 40-answer scan usually fits.
+- **Usage limit:** the scans-per-hour limit is kept per server instance.
+- **Blocked sites:** some sites block data-centre IPs, so reading them can fail.
+- **Commercial use:** Hobby is meant for non-commercial use. Move to Pro before charging.
+- **Extension:** it connects on `*.vercel.app`. Add your own domain to `content_scripts.matches` in
+  `extension/manifest.json` when you have one.
 
 ## Cost and limits
 

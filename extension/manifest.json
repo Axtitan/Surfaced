@@ -7,7 +7,7 @@
   "action": { "default_popup": "popup.html", "default_title": "Surfaced" },
   "content_scripts": [
     {
-      "matches": ["http://localhost:3100/*", "http://127.0.0.1:3100/*"],
+      "matches": ["http://localhost:3100/*", "http://127.0.0.1:3100/*", "https://*.vercel.app/*"],
       "js": ["bridge.js"],
       "run_at": "document_idle"
     }
