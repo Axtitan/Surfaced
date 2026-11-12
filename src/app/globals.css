@@ -58,3 +58,20 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Printing a check, or saving it as a PDF from the print dialog (§16.1): the open tab as a plain report. Navigation,
+   controls and forms are left out; the print-only header says what the report is and when it was made. */
+.print-only { display: none; }
+@media print {
+  @page { margin: 14mm; }
+  html, body, main, .bg-paper { background: #fff !important; }
+  .print-only { display: block; }
+  .no-print, [role="tablist"], nextjs-portal, button, select, input, textarea, form, .btn { display: none !important; }
+  .card { border-color: #d8dbe0; break-inside: avoid; box-shadow: none !important; }
+  .card, section, li, dl > div { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; }
+  a { color: inherit; text-decoration: none; }
+  .below-fold { content-visibility: visible; }
+  .sticky { position: static !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

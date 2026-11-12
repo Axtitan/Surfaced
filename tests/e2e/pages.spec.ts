@@ -6,7 +6,7 @@ const PAGES = [
   "/", "/pricing", "/how-it-works", "/for/agencies", "/for/local-business",
   "/tools/ai-crawler-check", "/tools/llms-txt-generator", "/tools/json-ld-generator",
   "/directories", "/directories/acquire", "/changelog",
-  "/privacy", "/terms", "/cookies", "/acceptable-use", "/security", "/subprocessors", "/refunds",
+  "/privacy", "/terms", "/cookies", "/acceptable-use", "/security", "/subprocessors", "/refunds", "/bot",
   "/app", "/app/new", "/app/settings",
 ];
 

@@ -27,6 +27,40 @@ const BROAD = new Set(["software", "startup", "indie", "saas", "business", "comm
 const GENERIC = new Set(["app", "apps", "tool", "tools", "software", "best", "free", "online", "platform", "service", "services", "simple", "cheap", "based", "with", "your", "that", "open", "source", "taking", "management", "small", "business", "company", "solution", "solutions"]);
 const MAX_SUBREDDITS = 12;
 
+// "host/path" for a page address, lower case, without "www." or a trailing slash.
+const pageKey = (u: string) => {
+  try {
+    const url = new URL(u);
+    return { host: url.hostname.replace(/^www\./, "").toLowerCase(), path: url.pathname, key: `${url.hostname.replace(/^www\./, "")}${url.pathname}`.toLowerCase().replace(/\/+$/, "") };
+  } catch { return null; }
+};
+// Listing addresses with a path (one subreddit, one GitHub list), built once on first use.
+let pathKeys: { key: string; d: Destination }[] | null = null;
+const listingPaths = () => pathKeys ??= ALL.flatMap((d) => [d.url, d.site].map(pageKey).filter((k) => k && k.path.length > 1).map((k) => ({ key: k!.key, d })));
+
+/** The catalog destination a cited page belongs to, if any: a listing whose address the page sits under (one subreddit,
+    one GitHub list), or else a site whose host is not shared by many listings. */
+export function destinationForUrl(u: string): Destination | null {
+  const page = pageKey(u);
+  if (!page) return null;
+  let best: { key: string; d: Destination } | null = null;
+  for (const k of listingPaths()) {
+    if ((page.key === k.key || page.key.startsWith(`${k.key}/`)) && (!best || k.key.length > best.key.length)) best = k;
+  }
+  if (best) return best.d;
+  const byHost = ALL.find((d) => hostKey(d) === page.host || page.host.endsWith(`.${hostKey(d)}`));
+  return byHost && (HOST_COUNT[hostKey(byHost)] ?? 0) <= 2 ? byHost : null;
+}
+
+/** A catalog listing by its slug. */
+export const destinationBySlug = (slug: string): Destination | null => ALL.find((d) => d.slug === slug) ?? null;
+
+/** The page is on the listing's own site (or a subdomain of it): where a live listing has to be. */
+export function onListingSite(url: string, d: Pick<Destination, "url" | "site">): boolean {
+  const h = hostOf(url);
+  return !!h && [d.site, d.url].map(hostOf).filter(Boolean).some((root) => h === root || h.endsWith(`.${root}`));
+}
+
 /** Niche words from the product's category ("open-source note-taking app" -> note, notetaking, opensource). */
 export function nicheTerms(category: string) {
   const lower = category.toLowerCase();

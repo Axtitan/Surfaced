@@ -19,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page("/directories", 0.7, "weekly"),
     ...GUIDES.map((d) => page(`/directories/${d.slug}`, 0.5)),
     page("/changelog", 0.4, "weekly"),
+    page("/bot", 0.2, "yearly"),
     ...LEGAL.map((d) => page(`/${d.slug}`, 0.2, "yearly")),
   ];
 }

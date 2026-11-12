@@ -1,12 +1,12 @@
-import type { ProviderId, Run } from "./types";
+import type { AiId, Run } from "./types";
 import { matcher, type Brand } from "./match";
 
 /** Bump when the score formula changes, so old and new scores are never compared silently (§9.6). */
 export const SCORE_VERSION = 1;
 
-export type ProviderScore = { id: ProviderId; runs: number; mentioned: number; rate: number; avgRank: number | null; cited: number; errors: number };
+export type ProviderScore = { id: AiId; runs: number; mentioned: number; rate: number; avgRank: number | null; cited: number; errors: number };
 
-export function summarise(runs: Run[], providers: ProviderId[]) {
+export function summarise(runs: Run[], providers: AiId[]) {
   const ok = runs.filter((r) => r.ok);
   const byProvider: ProviderScore[] = providers.map((id) => {
     // Score the consumer-like runs (live search; DeepSeek has none). Memory-only runs are reported separately.

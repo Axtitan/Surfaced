@@ -32,7 +32,7 @@ export function SiteHeader() {
 const FOOTER = [
   { title: "Product", links: [["/how-it-works", "How it works"], ["/pricing", "Pricing"], ["/for/agencies", "For agencies"], ["/for/local-business", "For local businesses"], ["/changelog", "Changelog"]] },
   { title: "Free tools", links: [["/tools/ai-crawler-check", "AI crawler check"], ["/tools/llms-txt-generator", "llms.txt generator"], ["/tools/json-ld-generator", "JSON-LD generator"], ["/directories", "Directory guides"]] },
-  { title: "Legal", links: [["/privacy", "Privacy"], ["/terms", "Terms"], ["/cookies", "Cookies"], ["/acceptable-use", "Acceptable use"], ["/security", "Security"], ["/subprocessors", "Sub-processors"], ["/refunds", "Refunds"]] },
+  { title: "Legal", links: [["/privacy", "Privacy"], ["/terms", "Terms"], ["/cookies", "Cookies"], ["/acceptable-use", "Acceptable use"], ["/security", "Security"], ["/bot", "SurfacedBot"], ["/subprocessors", "Sub-processors"], ["/refunds", "Refunds"]] },
 ] as const;
 
 export function SiteFooter() {

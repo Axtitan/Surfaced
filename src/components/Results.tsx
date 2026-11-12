@@ -1,22 +1,23 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import type { Profile, ProviderId, Run } from "@/lib/types";
+import type { AiId, Profile, Run } from "@/lib/types";
+import { AI_NAME } from "@/lib/ais";
 import { interval, type summarise } from "@/lib/score";
 import { EXTERNAL_REL, safeHref } from "@/lib/safe-href";
 
 type Summary = ReturnType<typeof summarise>;
-type ProviderInfo = { id: ProviderId; label: string; searchCapable: boolean };
+type ProviderInfo = { id: AiId; label: string; searchCapable: boolean };
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 export default function Results({ profile, runs, total, running, summary, providers, demo }: {
   profile: Profile; runs: Run[]; total: number; running: boolean; summary: Summary; providers: ProviderInfo[]; demo: boolean;
 }) {
-  const [open, setOpen] = useState<{ prompt: string; provider: ProviderId } | null>(null);
+  const [open, setOpen] = useState<{ prompt: string; provider: AiId } | null>(null);
   const prompts = [...new Set(runs.map((r) => r.prompt))];
   const cols = summary.byProvider.filter((p) => p.runs || runs.some((r) => r.provider === p.id));
-  const label = (id: ProviderId) => providers.find((p) => p.id === id)?.label ?? id;
+  const label = (id: AiId) => providers.find((p) => p.id === id)?.label ?? AI_NAME[id] ?? id;
   const verdict = summary.score >= 60 ? "AIs recommend you often." : summary.score >= 25 ? "AIs recommend you sometimes." : summary.score > 0 ? "AIs rarely recommend you." : "AIs don't recommend you yet.";
   const detail = open ? runs.filter((r) => r.prompt === open.prompt && r.provider === open.provider) : [];
 

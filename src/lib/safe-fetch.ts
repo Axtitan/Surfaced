@@ -3,6 +3,7 @@ import http from "node:http";
 import https from "node:https";
 import { isIP } from "node:net";
 import zlib from "node:zlib";
+import { SITE_URL } from "./site-url";
 export { normaliseUrl } from "./url";
 
 /* Fetches a page the user (or an AI answer) named without letting anyone point us at our own network (SSRF, §12.8):
@@ -59,7 +60,7 @@ export const nodeTransport: Transport = (url, address, { maxBytes, timeoutMs }) 
       opts?.all ? cb(null, [address]) : cb(null, address.address, address.family)) as never,
     servername: isIP(host) ? undefined : host,
     headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; SurfacedBot/0.2; +https://github.com/Axtitan/Surfaced)",
+      "User-Agent": `Mozilla/5.0 (compatible; SurfacedBot/0.3; +${SITE_URL}/bot)`,
       Accept: "text/html,text/plain;q=0.9,*/*;q=0.5",
       "Accept-Encoding": "gzip, deflate, br",
     },

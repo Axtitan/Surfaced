@@ -67,10 +67,11 @@ export function parsePage(html: string, finalUrl: string): PageInfo {
   };
 }
 
-/** Is "/" blocked for this user agent? Uses the most specific matching group, as crawlers do. */
-export function robotsBlocks(robots: string, token: string): boolean {
-  const groups: { agents: string[]; rules: { allow: boolean; path: string }[] }[] = [];
-  let cur: (typeof groups)[number] | null = null;
+type RobotsGroup = { agents: string[]; rules: { allow: boolean; path: string }[] };
+
+function robotsGroups(robots: string): RobotsGroup[] {
+  const groups: RobotsGroup[] = [];
+  let cur: RobotsGroup | null = null;
   let lastWasAgent = false;
   for (const raw of robots.split(/\r?\n/)) {
     const line = raw.replace(/#.*/, "").trim();
@@ -79,21 +80,40 @@ export function robotsBlocks(robots: string, token: string): boolean {
     const [, k, v] = m;
     if (k.toLowerCase() === "user-agent") {
       if (!cur || !lastWasAgent) groups.push((cur = { agents: [], rules: [] }));
-      cur.agents.push(v.toLowerCase());
+      cur.agents.push(v.trim().toLowerCase());
       lastWasAgent = true;
     } else {
       lastWasAgent = false;
-      if (cur && /^(dis)?allow$/i.test(k)) cur.rules.push({ allow: k.toLowerCase() === "allow", path: v });
+      if (cur && /^(dis)?allow$/i.test(k)) cur.rules.push({ allow: k.toLowerCase() === "allow", path: v.trim() });
     }
   }
+  return groups;
+}
+
+/** Does a robots.txt rule path match this URL path? Supports "*" anywhere and "$" at the end, as major crawlers do. */
+function ruleMatches(rule: string, path: string): boolean {
+  const anchored = rule.endsWith("$");
+  const body = anchored ? rule.slice(0, -1) : rule;
+  const re = new RegExp("^" + body.split("*").map((p) => p.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*") + (anchored ? "$" : ""));
+  return re.test(path);
+}
+
+/** May this user agent fetch this path (path plus query)? The group naming the agent wins over "*"; within it the
+    longest matching rule wins, and allow wins a tie. An empty Disallow allows everything. */
+export function robotsAllows(robots: string, token: string, path: string): boolean {
+  const groups = robotsGroups(robots);
   const t = token.toLowerCase();
-  const group = groups.find((g) => g.agents.includes(t)) ?? groups.find((g) => g.agents.includes("*"));
-  if (!group) return false;
-  // Longest matching rule wins; "/" (or "/*") disallowed with no equal-or-longer allow means blocked.
-  const matches = group.rules.filter((r) => r.path && ("/".startsWith(r.path.replace(/\*$/, "")) || r.path === "/*"));
-  if (!matches.length) return false;
-  const best = matches.sort((a, b) => b.path.length - a.path.length || Number(b.allow) - Number(a.allow))[0];
-  return !best.allow;
+  const named = groups.filter((g) => g.agents.includes(t));
+  const chosen = named.length ? named : groups.filter((g) => g.agents.includes("*"));
+  const rules = chosen.flatMap((g) => g.rules).filter((r) => r.path && ruleMatches(r.path, path));
+  if (!rules.length) return true;
+  const best = rules.sort((a, b) => b.path.length - a.path.length || Number(b.allow) - Number(a.allow))[0];
+  return best.allow;
+}
+
+/** Is "/" blocked for this user agent? */
+export function robotsBlocks(robots: string, token: string): boolean {
+  return !robotsAllows(robots, token, "/");
 }
 
 async function tryText(url: string) {

@@ -64,9 +64,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-paper lg:grid lg:grid-cols-[256px_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen border-r border-line bg-[#f2f2ef] lg:block">{sidebar}</aside>
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-paper/90 px-4 py-3 backdrop-blur lg:hidden">
+    <div className="min-h-screen bg-paper lg:grid lg:grid-cols-[256px_minmax(0,1fr)] print:!block">
+      <aside className="no-print sticky top-0 hidden h-screen border-r border-line bg-[#f2f2ef] lg:block">{sidebar}</aside>
+      <header className="no-print sticky top-0 z-30 flex items-center justify-between border-b border-line bg-paper/90 px-4 py-3 backdrop-blur lg:hidden">
         <Link href="/app" className="text-ink"><Logo /></Link>
         <button type="button" className="btn btn-ghost !px-3" onClick={() => setOpen(true)} aria-label="Open menu" aria-expanded={open}>Menu</button>
       </header>

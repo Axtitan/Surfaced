@@ -1,4 +1,6 @@
 export type ProviderId = "claude" | "chatgpt" | "gemini" | "deepseek";
+/** Every AI whose answers we score. The extra ones are paste-only: they have no API adapter. */
+export type AiId = ProviderId | "perplexity" | "copilot" | "googleai";
 export type Mode = "search" | "memory";
 
 export type Source = { url: string; title?: string; domain: string };

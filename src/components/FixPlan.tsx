@@ -6,6 +6,7 @@ import type { summarise } from "@/lib/score";
 import { jsonLd, llmsTxt } from "@/lib/fixes";
 import { track as trackEvent } from "@vercel/analytics";
 import { EXTERNAL_REL, safeHref } from "@/lib/safe-href";
+import ListingVerify, { type LiveEntry } from "./ListingVerify";
 
 type Summary = ReturnType<typeof summarise>;
 type Status = "todo" | "opened" | "submitted" | "live" | "rejected" | "skip";
@@ -57,6 +58,7 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
   // Rendered only in the browser inside ProjectView, so saved progress is read while initialising.
   const [kit, setKit] = useState<Kit>(() => ({ ...kitFrom(p), ...load<Partial<Kit>>(`surfaced:kit:${key}`, {}) }));
   const [track, setTrack] = useState<Record<string, Status>>(() => load(`surfaced:track:${key}`, {}));
+  const [liveChecks, setLiveChecks] = useState<Record<string, LiveEntry>>(() => load(`surfaced:live:${key}`, {}));
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [planState, setPlanState] = useState<"loading" | "ready" | "error">("loading");
   const [retry, setRetry] = useState(0);
@@ -66,6 +68,7 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
 
   useEffect(() => save(`surfaced:kit:${key}`, kit), [kit, key]);
   useEffect(() => save(`surfaced:track:${key}`, track), [track, key]);
+  useEffect(() => save(`surfaced:live:${key}`, liveChecks), [liveChecks, key]);
 
   const citedKey = summary.domains.map(([d, c]) => `${d}:${c}`).join(",");
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
   // The Surfaced browser extension announces itself and confirms when it has the kit.
   useEffect(() => {
     const on = (e: MessageEvent) => {
-      if (e.source !== window || e.data?.source !== "surfaced-ext") return;
+      if (e.source !== window || e.origin !== window.location.origin || e.data?.source !== "surfaced-ext") return;
       if (e.data.type === "hello") setExt((s) => (s === "sent" ? s : "ready"));
       if (e.data.type === "kit-saved") setExt("sent");
     };
@@ -194,7 +197,7 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
           )}
           {planState === "ready" && !list.length && <li className="p-4 text-sm text-muted">Nothing in this group{freeOnly ? " is free" : ""}. Try another group.</li>}
           {list.map((d) => (
-            <li key={d.slug} className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center ${["submitted", "live", "rejected", "skip"].includes(st(d.slug)) ? "opacity-60" : ""}`}>
+            <li key={d.slug} className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center ${["rejected", "skip"].includes(st(d.slug)) ? "opacity-60" : ""}`}>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{d.name}</span>
@@ -205,6 +208,11 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
                 </div>
                 <p className="mt-1 truncate text-sm text-muted">{d.reasons.filter((r) => !/^DR|^Free$/.test(r)).join(" · ") || d.description}</p>
                 {safeHref(d.rules) && <a className="text-xs underline" href={safeHref(d.rules)} target="_blank" rel={EXTERNAL_REL}>Read the posting rules first</a>}
+                {(st(d.slug) === "submitted" || st(d.slug) === "live" || liveChecks[d.slug]) && (
+                  <ListingVerify slug={d.slug} name={d.name} profile={p} entry={liveChecks[d.slug]}
+                    onEntry={(e) => setLiveChecks((m) => ({ ...m, [d.slug]: e }))}
+                    onLive={() => setTrack((t) => ({ ...t, [d.slug]: "live" }))} />
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button type="button" className="btn btn-ghost !py-1.5 !text-sm" onClick={() => openDest(d)} disabled={!safeHref(d.url)} aria-label={`Open ${d.name}`}>Open</button>

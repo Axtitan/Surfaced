@@ -32,6 +32,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Dependency audit
         run: npm audit --audit-level=high --omit=dev
+      - name: Software bill of materials (CycloneDX, runtime dependencies)
+        run: npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
