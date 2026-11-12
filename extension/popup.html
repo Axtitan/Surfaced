@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  body { width: 300px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: #14161a; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  p { margin: 6px 0; color: #5d6470; }
+  button { width: 100%; padding: 9px; border: 0; border-radius: 9px; background: #14161a; color: #fff; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .fields { margin-top: 10px; border-top: 1px solid #e3e5e9; padding-top: 8px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; }
+  .row span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .row a { color: #3b5bfd; cursor: pointer; flex-shrink: 0; }
+  #status { font-weight: 600; color: #138a52; }
+</style>
+</head>
+<body>
+  <h1>Surfaced</h1>
+  <p id="who">No listing kit yet. Open Surfaced and click “Send kit to the extension”.</p>
+  <button id="fill" disabled>Fill this page</button>
+  <p id="status"></p>
+  <p>Check every field before you submit. Surfaced never submits forms for you.</p>
+  <div class="fields" id="fields"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
