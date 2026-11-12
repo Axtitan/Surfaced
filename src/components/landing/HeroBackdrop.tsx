@@ -8,7 +8,9 @@ export function HeroBackdrop() {
   const common = { alt: "", sizes: "100vw", placeholder: "blur" as const };
   const { props: { srcSet: desktop } } = getImageProps({ ...common, src: hero });
   const { props: { srcSet: mobile } } = getImageProps({ ...common, src: heroSm });
-  const { props: rest } = getImageProps({ ...common, src: hero, priority: true });
+  // Faded behind a white gradient and never the main content, so it loads straight away but after the text and fonts:
+  // no preload, low fetch priority.
+  const { props: rest } = getImageProps({ ...common, src: hero, loading: "eager", fetchPriority: "low" });
   return (
     <div className="absolute inset-0 -z-10">
       <picture>

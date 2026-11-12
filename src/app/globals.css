@@ -21,7 +21,7 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
 
 .card { background: #fff; border: 1px solid var(--color-line); border-radius: 16px; }
-.font-display { font-variation-settings: "opsz" 96, "SOFT" 30; font-weight: 500; letter-spacing: -0.025em; }
+.font-display { font-variation-settings: "opsz" 96; font-weight: 500; letter-spacing: -0.025em; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; border-radius: 999px; padding: .55rem 1.1rem; font-weight: 600; font-size: .9rem; transition: background .15s, opacity .15s; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-primary { background: var(--color-ink); color: #fff; }
@@ -51,6 +51,10 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 .prose-page code { font-size: .88em; background: #eef0f4; border-radius: 6px; padding: .05rem .3rem; }
 
 /* Respect reduced motion (§16.4). */
+/* Sections well below the first screen: the browser skips their layout and paint until they near the viewport.
+   The intrinsic size is a placeholder height; "auto" remembers the real one once rendered. */
+.below-fold { content-visibility: auto; contain-intrinsic-size: auto 900px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

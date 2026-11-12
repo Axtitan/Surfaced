@@ -30,7 +30,11 @@ export default function Pricing() {
       <JsonLd data={{ "@graph": [appLd(), breadcrumbLd([{ path: "/", name: "Home" }, { path: "/pricing", name: "Pricing" }])] }} />
       <PageHead eyebrow="Pricing" title="Free while we build the rest"
         lead="Free mode is complete: ask in your own AI accounts, paste the answers, get a score and a ranked list of places to submit. Paid plans are planned and not on sale yet; the prices below may change before launch." />
-      <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-8"><PlanGrid /></section>
+      <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-8" aria-labelledby="plans">
+        {/* Plan names are h3s, so the section needs an h2 to keep headings in order. */}
+        <h2 id="plans" className="sr-only">Plans</h2>
+        <PlanGrid />
+      </section>
 
       <section className="mx-auto max-w-5xl px-5 pb-20 sm:px-8">
         <h2 className="font-display text-3xl">Compare plans</h2>
