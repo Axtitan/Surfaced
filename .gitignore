@@ -4,3 +4,7 @@ node_modules/
 .env
 *.tsbuildinfo
 next-env.d.ts
+
+# Private planning files: kept on this machine only.
+docs/
+CLAUDE.md
