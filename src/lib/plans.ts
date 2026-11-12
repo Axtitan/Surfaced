@@ -5,10 +5,10 @@ export type PlanId = "free" | "starter" | "growth" | "agency";
 export type Feature = "citations" | "verify" | "whiteLabel";
 
 export const PLANS = {
-  free:    { sites: 1,  prompts: 10, autoScansPerMonth: 0,   schedule: null,      destinationsShown: 10,   seats: 1,  citations: false, verify: false, whiteLabel: false },
-  starter: { sites: 1,  prompts: 15, autoScansPerMonth: 6,   schedule: "weekly",  destinationsShown: null, seats: 1,  citations: true,  verify: false, whiteLabel: false },
-  growth:  { sites: 3,  prompts: 30, autoScansPerMonth: 30,  schedule: "2x-week", destinationsShown: null, seats: 3,  citations: true,  verify: true,  whiteLabel: false },
-  agency:  { sites: 15, prompts: 30, autoScansPerMonth: 150, schedule: "2x-week", destinationsShown: null, seats: 10, citations: true,  verify: true,  whiteLabel: true  },
+  free:    { sites: 1,  prompts: 10, autoScansPerMonth: 0,   schedule: null,      destinationsShown: 10,   citedPages: 5,  seats: 1,  citations: false, verify: false, whiteLabel: false },
+  starter: { sites: 1,  prompts: 15, autoScansPerMonth: 6,   schedule: "weekly",  destinationsShown: null, citedPages: 30, seats: 1,  citations: true,  verify: false, whiteLabel: false },
+  growth:  { sites: 3,  prompts: 30, autoScansPerMonth: 30,  schedule: "2x-week", destinationsShown: null, citedPages: 30, seats: 3,  citations: true,  verify: true,  whiteLabel: false },
+  agency:  { sites: 15, prompts: 30, autoScansPerMonth: 150, schedule: "2x-week", destinationsShown: null, citedPages: 30, seats: 10, citations: true,  verify: true,  whiteLabel: true  },
 } as const;
 
 export function can(plan: PlanId, feature: Feature): boolean {

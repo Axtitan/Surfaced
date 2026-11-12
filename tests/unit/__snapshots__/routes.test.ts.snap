@@ -1,0 +1,36 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`POST /api/plan (golden ranking) > ranks a local business differently 1`] = `
+[
+  "nextdoor",
+  "proven-expert",
+  "trustpilot",
+  "better-business-bureau",
+  "yellow-pages",
+  "google-business-profile",
+  "yelp",
+  "bing-places",
+  "tripadvisor",
+  "geekwire",
+]
+`;
+
+exports[`POST /api/plan (golden ranking) > ranks a software product's destinations the same way 1`] = `
+[
+  "alternativeto",
+  "g2",
+  "alternative-me",
+  "capterra",
+  "trustradius",
+  "software-advice",
+  "getapp",
+  "crozdesk",
+  "stackshare",
+  "european-alternatives",
+  "saashub",
+  "product-hunt",
+  "sourceforge",
+  "geekwire",
+  "f6s",
+]
+`;

@@ -1,17 +1,17 @@
 /* Projects (one per website) live in this browser's localStorage until accounts exist.
    The index holds small summaries so the dashboard and sidebar don't load every answer. */
-import type { Analysis, ProviderId, Run } from "./types";
+import type { Analysis, CitedReport, Run } from "./types";
+import { ALL_AIS } from "./ais";
 import { summarise } from "./score";
 
 export type AnswerMode = "paste" | "auto";
-export type Project = { id: string; analysis: Analysis; runs: Run[]; mode: AnswerMode; createdAt: number; updatedAt: number };
+export type Project = { id: string; analysis: Analysis; runs: Run[]; mode: AnswerMode; createdAt: number; updatedAt: number; cited?: CitedReport };
 export type ProjectMeta = { id: string; name: string; domain: string; score: number | null; answers: number; updatedAt: number };
 
 const INDEX = "surfaced:projects";
 const key = (id: string) => `surfaced:project:${id}`;
 export const projectKey = key;
 export const CHANGED = "surfaced:projects-changed";
-const ALL: ProviderId[] = ["chatgpt", "claude", "gemini", "deepseek"];
 
 const read = <T,>(k: string, d: T): T => { try { return JSON.parse(localStorage.getItem(k) ?? "null") ?? d; } catch { return d; } };
 const write = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
@@ -27,7 +27,7 @@ export const modeRuns = (p: Pick<Project, "runs" | "mode"> & { analysis?: Pick<A
 export function scoreOf(runs: Run[]) {
   const ok = runs.filter((r) => r.ok);
   if (!ok.length) return null;
-  const used = ALL.filter((id) => ok.some((r) => r.provider === id));
+  const used = ALL_AIS.filter((id) => ok.some((r) => r.provider === id));
   return summarise(runs, used).score;
 }
 
@@ -64,6 +64,7 @@ export function deleteProject(id: string) {
     localStorage.removeItem(key(id));
     localStorage.removeItem(`surfaced:kit:${id}`);
     localStorage.removeItem(`surfaced:track:${id}`);
+    localStorage.removeItem(`surfaced:live:${id}`);
   } catch { /* ignore */ }
   write(INDEX, read<ProjectMeta[]>(INDEX, []).filter((m) => m.id !== id));
   window.dispatchEvent(new Event(CHANGED));

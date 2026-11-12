@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Analysis, ProviderId } from "@/lib/types";
+import type { AiId, Analysis, ProviderId } from "@/lib/types";
+import { ALL_AIS } from "@/lib/ais";
 import { track } from "@vercel/analytics";
 import { summarise } from "@/lib/score";
-import { getProject, modeRuns, projectKey, saveProject, type AnswerMode, type Project } from "@/lib/store";
+import { getProject, modeRuns, projectKey, saveProject, submittedCount, type AnswerMode, type Project } from "@/lib/store";
 import { autoRunsAfter } from "@/lib/scan-machine";
 import { EXTERNAL_REL, safeHref } from "@/lib/safe-href";
 import ProfileEditor, { type QuestionChange } from "./ProfileEditor";
@@ -13,18 +14,24 @@ import PasteBoard from "./PasteBoard";
 import Results from "./Results";
 import FixPlan from "./FixPlan";
 import Competitors from "./Competitors";
+import CitedPages from "./CitedPages";
+import Overview from "./Overview";
+import CheckSettings from "./CheckSettings";
 import StorageWarning from "./StorageWarning";
 import { useScan } from "./useScan";
 import { ScoreRing } from "./ui";
 
 export type ProviderInfo = { id: ProviderId; label: string; vendor: string; searchCapable: boolean; connected: boolean; demo: boolean };
-type Tab = "questions" | "answers" | "competitors" | "listings" | "site";
+type Tab = "overview" | "questions" | "answers" | "competitors" | "cited" | "listings" | "site" | "settings";
 const TABS: { id: Tab; label: string }[] = [
+  { id: "overview", label: "Overview" },
   { id: "questions", label: "Questions" },
   { id: "answers", label: "Answers & score" },
   { id: "competitors", label: "Competitors" },
+  { id: "cited", label: "Cited pages" },
   { id: "listings", label: "Get listed" },
   { id: "site", label: "Site fixes" },
+  { id: "settings", label: "Settings" },
 ];
 const ALL: ProviderId[] = ["chatgpt", "claude", "gemini", "deepseek"];
 const MAX_ANSWERS = 80;
@@ -37,7 +44,7 @@ export default function ProjectView({ id }: { id: string }) {
   const [tab, setTab] = useState<Tab>(() => {
     const fromHash = window.location.hash.slice(1) as Tab;
     if (TABS.some((t) => t.id === fromHash)) return fromHash;
-    return getProject(id)?.runs.length ? "answers" : "questions";
+    return getProject(id)?.runs.length ? "overview" : "questions";
   });
   const [providers, setProviders] = useState<ProviderInfo[] | null>(null);
   const [providersFailed, setProvidersFailed] = useState(false);
@@ -113,7 +120,9 @@ export default function ProjectView({ id }: { id: string }) {
     const prevAuto = allRuns.filter((r) => r.via !== "paste");
     return (running ? autoRunsAfter(scan, prevAuto) : prevAuto).filter((r) => live.has(r.prompt));
   }, [project, allRuns, prompts, running, scan]);
-  const shown = useMemo(() => ALL.filter((x) => runs.some((r) => r.provider === x) || (project?.mode === "auto" && picked.includes(x)) || project?.mode === "paste"), [runs, picked, project?.mode]);
+  // Columns: AIs with answers, plus the ones about to be asked (auto) or the core four (paste). Optional paste-only AIs
+  // appear once they have answers.
+  const shown = useMemo<AiId[]>(() => ALL_AIS.filter((x) => runs.some((r) => r.provider === x) || (project?.mode === "auto" && picked.includes(x as ProviderId)) || (project?.mode === "paste" && ALL.includes(x as ProviderId))), [runs, picked, project?.mode]);
   const summary = useMemo(() => summarise(runs, shown.length ? shown : ALL), [runs, shown]);
 
   if (project === undefined) return <div className="p-8 text-sm text-muted" role="status">Loading…</div>;
@@ -188,8 +197,12 @@ export default function ProjectView({ id }: { id: string }) {
             {siteHref ? <a href={siteHref} target="_blank" rel={EXTERNAL_REL} className="text-sm text-muted hover:underline">{p.domain} ↗</a> : <span className="text-sm text-muted">{p.domain}</span>}
           </div>
         </div>
-        <Link href={`/app/new?url=${encodeURIComponent(p.url)}&reread=1`} className="btn btn-ghost self-start sm:self-auto" aria-disabled={running} onClick={(e) => running && e.preventDefault()}>Re-read website</Link>
+        <div className="no-print flex flex-wrap gap-2 self-start sm:self-auto">
+          {hasResults && <button type="button" className="btn btn-ghost" onClick={() => window.print()} title="Opens the print dialog. Choose “Save as PDF” as the printer.">Save as PDF</button>}
+          <Link href={`/app/new?url=${encodeURIComponent(p.url)}&reread=1`} className="btn btn-ghost" aria-disabled={running} onClick={(e) => running && e.preventDefault()}>Re-read website</Link>
+        </div>
       </div>
+      <p className="print-only mt-2 text-xs text-muted">Surfaced report · {TABS.find((t) => t.id === tab)?.label} · {p.domain} · {new Date().toLocaleDateString()}</p>
 
       <div role="tablist" aria-label="Check sections" onKeyDown={onTabKey} className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line [scrollbar-width:none]">
         {TABS.map((t) => (
@@ -276,7 +289,15 @@ export default function ProjectView({ id }: { id: string }) {
           </>
         )}
 
+        {tab === "overview" && (
+          <Overview profile={p} runs={runs} prompts={analysis.prompts} summary={summary} checks={analysis.checks} cited={project.cited}
+            submitted={submittedCount(project.id)}
+            expected={analysis.prompts.length * (project.mode === "paste" ? ALL.length : Math.max(1, picked.length) * samples)}
+            onGo={(t) => go(t, true)} />
+        )}
         {tab === "competitors" && <Competitors profile={p} runs={runs} />}
+        {tab === "cited" && <CitedPages profile={p} runs={runs} report={project.cited} onReport={(cited) => update({ cited })} onAnswers={() => go("answers", true)} />}
+        {tab === "settings" && <CheckSettings project={project} locked={running} />}
         {tab === "listings" && <FixPlan section="listings" analysis={analysis} summary={summary} onProfile={(profile) => { update({ analysis: { ...analysis, profile } }); setVer((v) => v + 1); }} />}
         {tab === "site" && <FixPlan section="site" analysis={analysis} summary={summary} onProfile={() => {}} />}
       </div>

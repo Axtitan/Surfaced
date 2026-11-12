@@ -1,24 +1,28 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Profile, ProviderId, Run } from "@/lib/types";
+import type { AiId, Profile, Run } from "@/lib/types";
 import { track } from "@vercel/analytics";
 import { judge } from "@/lib/match";
 import { dedupeSources, source } from "@/lib/providers/util";
 
-/* Free mode: the user asks each question in their own ChatGPT, Claude, Gemini and DeepSeek accounts and pastes the
-   answer back. We score it exactly like an API answer. Links in the pasted answer (copied as HTML or markdown) become
+/* Free mode: the user asks each question in their own ChatGPT, Claude, Gemini and DeepSeek accounts (and, optionally,
+   Perplexity, Copilot and Google's AI Mode) and pastes the answer back. We score it exactly like an API answer. Links in the pasted answer (copied as HTML or markdown) become
    its sources, which feed the submission plan. */
 
-type App = { id: ProviderId; name: string; open: (q: string) => string; prefill: boolean; tip: string };
+type App = { id: AiId; name: string; open: (q: string) => string; prefill: boolean; tip: string; optional?: boolean };
 export const APPS: App[] = [
   { id: "chatgpt", name: "ChatGPT", open: (q) => `https://chatgpt.com/?q=${encodeURIComponent(q)}`, prefill: true, tip: "The question opens ready in a new chat. The free plan works and searches the web on its own for questions like these." },
   { id: "claude", name: "Claude", open: (q) => `https://claude.ai/new?q=${encodeURIComponent(q)}`, prefill: true, tip: "The question opens in a new chat. Press send. If web search is off, turn it on in the chat's tools menu first." },
   { id: "gemini", name: "Gemini", open: () => "https://gemini.google.com/app", prefill: false, tip: "The question is on your clipboard. Paste it into Gemini and send." },
   { id: "deepseek", name: "DeepSeek", open: () => "https://chat.deepseek.com/", prefill: false, tip: "Turn on Search, then paste the question (it's on your clipboard) and send." },
+  { id: "perplexity", name: "Perplexity", optional: true, open: (q) => `https://www.perplexity.ai/search?q=${encodeURIComponent(q)}`, prefill: true, tip: "Optional. The question opens as a search; no account needed. Copy the answer with its sources." },
+  { id: "copilot", name: "Copilot", optional: true, open: () => "https://copilot.microsoft.com/", prefill: false, tip: "Optional. The question is on your clipboard. Paste it into Copilot and send." },
+  { id: "googleai", name: "Google AI", optional: true, open: (q) => `https://www.google.com/search?udm=50&q=${encodeURIComponent(q)}`, prefill: true, tip: "Optional. Opens Google's AI Mode with the question. Where AI Mode isn't offered, copy the AI Overview at the top of a normal search instead, if there is one." },
 ];
+const CORE = APPS.filter((a) => !a.optional);
 // Links to the chat apps themselves aren't sources.
-const CHAT_HOSTS = /(^|\.)(chatgpt\.com|claude\.ai|gemini\.google\.com|chat\.deepseek\.com)$/;
+const CHAT_HOSTS = /(^|\.)(chatgpt\.com|claude\.ai|gemini\.google\.com|chat\.deepseek\.com|perplexity\.ai|copilot\.microsoft\.com)$|^(www\.)?google\.com$/;
 
 type Link = { url: string; title?: string };
 type Draft = { text: string; links: Link[] };
@@ -44,7 +48,7 @@ function linksFromHtml(html: string): Link[] {
 export default function PasteBoard({ profile, prompts, runs, onRuns }: {
   profile: Profile; prompts: string[]; runs: Run[]; onRuns: (next: Run[]) => void;
 }) {
-  const [app, setApp] = useState<ProviderId>("chatgpt");
+  const [app, setApp] = useState<AiId>("chatgpt");
   const [index, setIndex] = useState(0);
   // Unsaved text per AI and question, so moving around doesn't lose a paste (F-32). The box shows the draft for the
   // current question, or its saved answer when there is no draft.
@@ -54,11 +58,11 @@ export default function PasteBoard({ profile, prompts, runs, onRuns }: {
   const [extKey, setExtKey] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<Partial<Record<ProviderId, HTMLButtonElement | null>>>({});
+  const tabRefs = useRef<Partial<Record<AiId, HTMLButtonElement | null>>>({});
 
   const pasted = useMemo(() => runs.filter((r) => r.via === "paste"), [runs]);
-  const find = (p: ProviderId, q: string) => pasted.find((r) => r.provider === p && r.prompt === q);
-  const doneFor = (p: ProviderId) => prompts.filter((q) => find(p, q)).length;
+  const find = (p: AiId, q: string) => pasted.find((r) => r.provider === p && r.prompt === q);
+  const doneFor = (p: AiId) => prompts.filter((q) => find(p, q)).length;
   const meta = APPS.find((a) => a.id === app)!;
   // Deleting questions elsewhere can leave the index past the end (F-33).
   const idx = Math.min(index, Math.max(0, prompts.length - 1));
@@ -84,7 +88,7 @@ export default function PasteBoard({ profile, prompts, runs, onRuns }: {
       const c = list[list.length - 1];
       if (!c || typeof c.text !== "string" || !APPS.some((a) => a.id === c.provider)) return;
       const got: Link[] = (Array.isArray(c.links) ? c.links : []).filter((l: Link) => typeof l?.url === "string" && /^https?:/i.test(l.url)).slice(0, 40);
-      const target: ProviderId = c.provider;
+      const target: AiId = c.provider;
       let at = idx;
       if (target !== app) {
         at = Math.max(0, prompts.findIndex((q) => !pasted.some((r) => r.provider === target && r.prompt === q)));
@@ -122,7 +126,8 @@ export default function PasteBoard({ profile, prompts, runs, onRuns }: {
     if (after >= 0) return setIndex(after);
     const first = prompts.findIndex((q) => !find(app, q));
     if (first >= 0 && first !== idx) return setIndex(first);
-    const other = APPS.find((a) => a.id !== app && doneFor(a.id) < prompts.length);
+    // Then the next core AI with gaps; the optional ones are only visited on purpose.
+    const other = CORE.find((a) => a.id !== app && doneFor(a.id) < prompts.length);
     if (other) { setApp(other.id); setIndex(Math.max(0, prompts.findIndex((q) => !find(other.id, q)))); }
   }
 
@@ -150,8 +155,9 @@ export default function PasteBoard({ profile, prompts, runs, onRuns }: {
     dropDraft(draftKey);
   }
 
-  const total = prompts.length * APPS.length;
-  const done = APPS.reduce((n, a) => n + doneFor(a.id), 0);
+  const total = prompts.length * CORE.length;
+  const done = CORE.reduce((n, a) => n + doneFor(a.id), 0);
+  const extra = APPS.filter((a) => a.optional).reduce((n, a) => n + doneFor(a.id), 0);
   const sourceCount = new Set([...links, ...linksFromText(text)].filter((l) => !CHAT_HOSTS.test(source(l.url).domain)).map((l) => l.url)).size;
 
   const onTabKey = (e: React.KeyboardEvent) => {
@@ -179,7 +185,7 @@ export default function PasteBoard({ profile, prompts, runs, onRuns }: {
           <h2 className="font-semibold">Ask in your own AI accounts</h2>
           <p className="text-sm text-muted">Free. About 30 seconds per answer. Use a temporary or logged-out chat so your history doesn&apos;t sway the answer.</p>
         </div>
-        <div className="text-sm font-semibold">{done} of {total} answers</div>
+        <div className="text-sm font-semibold">{done} of {total} answers{extra ? ` + ${extra} optional` : ""}</div>
       </div>
 
       <div className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line px-3 pt-2 [scrollbar-width:none]" role="tablist" aria-label="AI assistants" onKeyDown={onTabKey}>
@@ -190,7 +196,8 @@ export default function PasteBoard({ profile, prompts, runs, onRuns }: {
               onClick={() => { setApp(a.id); setIndex(Math.max(0, prompts.findIndex((q) => !find(a.id, q)))); }}
               className={`-mb-px flex shrink-0 items-center gap-2 rounded-t-lg border border-b-0 px-3.5 py-2 text-sm font-medium ${app === a.id ? "border-line bg-white" : "border-transparent text-muted hover:text-ink"}`}>
               {a.name}
-              <span className={`rounded-full px-1.5 text-xs ${n === prompts.length ? "bg-emerald-50 text-good" : "bg-[#eef0f4] text-muted"}`} aria-label={`${n} of ${prompts.length} answered`}>{n}/{prompts.length}</span>
+              {a.optional && n === 0 ? <span className="text-xs font-normal text-muted">optional</span> :
+              <span className={`rounded-full px-1.5 text-xs ${n === prompts.length ? "bg-emerald-50 text-good" : "bg-[#eef0f4] text-muted"}`} aria-label={`${n} of ${prompts.length} answered`}>{n}/{prompts.length}</span>}
             </button>
           );
         })}

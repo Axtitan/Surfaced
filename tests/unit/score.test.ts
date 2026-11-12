@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { citationRate, interval, shareOfVoice, summarise } from "@/lib/score";
 import { run } from "./helpers";
+import { AI_NAME, ALL_AIS, CORE_AIS } from "@/lib/ais";
 
 describe("summarise", () => {
   it("averages the mention rate across AIs so one AI can't carry the score", () => {
@@ -54,5 +55,20 @@ describe("citationRate and interval", () => {
     const [lo, hi] = interval(1, 2);
     expect(lo).toBeLessThan(0.2);
     expect(hi).toBeGreaterThan(0.8);
+  });
+});
+
+describe("paste-only AIs", () => {
+  it("score like any other AI once they have answers", () => {
+    const runs = [
+      run({ provider: "chatgpt", mentioned: true }),
+      run({ provider: "perplexity", mentioned: false }),
+      run({ provider: "googleai", mentioned: true }),
+    ];
+    const s = summarise(runs, ALL_AIS);
+    expect(s.byProvider.filter((p) => p.runs).map((p) => p.id)).toEqual(["chatgpt", "perplexity", "googleai"]);
+    expect(s.score).toBe(67);
+    expect(AI_NAME.googleai).toBe("Google AI Mode");
+    expect(CORE_AIS).toHaveLength(4);
   });
 });

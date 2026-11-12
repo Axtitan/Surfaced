@@ -1,7 +1,7 @@
 // Shapes shared by the API routes and the browser.
-import type { Mode, ProviderId } from "./providers/types";
+import type { AiId, Mode, ProviderId } from "./providers/types";
 
-export type { Mode, ProviderId };
+export type { AiId, Mode, ProviderId };
 
 export const CATEGORIES = [
   "ai", "analytics", "business", "community", "design", "developer-tools", "ecommerce",
@@ -42,7 +42,7 @@ export type Analysis = { profile: Profile; prompts: string[]; checks: Check[]; p
 export type Run = {
   id: string;
   prompt: string;
-  provider: ProviderId;
+  provider: AiId;
   mode: Mode;
   sample: number;
   ok: boolean;
@@ -84,3 +84,38 @@ export type Destination = {
 };
 
 export type PlannedDestination = Destination & { score: number; reasons: string[]; citedByAI: number };
+
+/** One page the AIs cited, after Surfaced fetched it (§9.7). Only parsed facts, never the page itself (§12.8 rule 8). */
+export type CitedPage = {
+  url: string;
+  domain: string;
+  title: string;
+  /** checked: fetched and read. blocked: robots.txt or the deny-list asks us not to. failed: couldn't read it.
+      skipped: not reached before the time limit. */
+  status: "checked" | "blocked" | "failed" | "skipped";
+  note?: string;
+  /** The page names the product. */
+  you: boolean;
+  /** The page links to the product's site. */
+  linksYou: boolean;
+  /** Tracked competitors the page names. */
+  competitors: string[];
+  /** The catalog listing this page belongs to, when there is one: the "Submit" action. */
+  /** The catalog listing this page belongs to. `type` "citation" means an editorial site with its own rules (Wikipedia), not a form. */
+  destination?: { slug: string; name: string; url: string; type?: string };
+};
+
+export type CitedReport = { checkedAt: number; pages: CitedPage[] };
+
+/** How a listing links to the product's site. "follow" passes search credit; the others are marked as not vouching. */
+export type LinkKind = "follow" | "nofollow" | "ugc" | "sponsored";
+
+export type ListingCheck = {
+  /** live: the page loads and names the product. missing: it loads but doesn't. blocked/failed: couldn't read it. */
+  status: "live" | "missing" | "blocked" | "failed";
+  checkedAt: number;
+  title: string;
+  /** The strongest link to the product's site on the page, or null if there is none. */
+  link: LinkKind | null;
+  note?: string;
+};
