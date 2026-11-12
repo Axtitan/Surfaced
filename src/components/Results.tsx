@@ -3,6 +3,7 @@
 import { Fragment, useState } from "react";
 import type { Profile, ProviderId, Run } from "@/lib/types";
 import { interval, type summarise } from "@/lib/score";
+import { EXTERNAL_REL, safeHref } from "@/lib/safe-href";
 
 type Summary = ReturnType<typeof summarise>;
 type ProviderInfo = { id: ProviderId; label: string; searchCapable: boolean };
@@ -27,15 +28,15 @@ export default function Results({ profile, runs, total, running, summary, provid
         </p>
       )}
       <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-        <div className="relative grid h-32 w-32 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(var(--color-ink) ${summary.score * 3.6}deg, #e9ebef 0)` }}>
+        <div role="img" aria-label={`Score ${summary.score} out of 100`} className="relative grid h-32 w-32 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(var(--color-ink) ${summary.score * 3.6}deg, #e9ebef 0)` }}>
           <div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center">
-            <div><div className="text-3xl font-bold">{summary.score}</div><div className="text-xs text-muted">out of 100</div></div>
+            <div aria-hidden><div className="text-3xl font-bold">{summary.score}</div><div className="text-xs text-muted">out of 100</div></div>
           </div>
         </div>
         <div className="space-y-1">
           <h2 className="text-xl font-semibold">{running ? "Asking the AIs…" : verdict}</h2>
           <p className="text-sm text-muted">
-            {running ? `${runs.length} of ${total} answers in.` : `Share of answers that name ${profile.name}, averaged across AIs, from ${runs.filter((r) => r.ok).length} answers.`}
+            {running ? `${runs.length} of ${total || "…"} answers in.` : `Share of answers that name ${profile.name}, averaged across AIs, from ${runs.filter((r) => r.ok).length} answers.`}
             {summary.errors > 0 && ` ${summary.errors} questions failed and aren't counted.`}
           </p>
           {summary.memoryRate != null && <p className="text-sm text-muted">Without web search, the AIs named you in {pct(summary.memoryRate)} of answers. That reflects what the models learned in training.</p>}
@@ -78,7 +79,8 @@ export default function Results({ profile, runs, total, running, summary, provid
                   return (
                     <td key={c.id} className="px-1 py-1 text-center">
                       <button type="button" disabled={!cell.length} onClick={() => setOpen({ prompt: q, provider: c.id })}
-                        className={`w-full rounded-md px-2 py-1.5 font-semibold ${tone}`} title="See the answers">
+                        className={`w-full rounded-md px-2 py-1.5 font-semibold ${tone}`} title="See the answers"
+                        aria-label={`${label(c.id)}: ${!cell.length ? "no answer yet" : !ok.length ? "failed" : `named you in ${hit} of ${ok.length}`}. Show answers`}>
                         {!cell.length ? "…" : !ok.length ? "error" : `${hit}/${ok.length}${best ? ` · #${best}` : ""}`}
                       </button>
                     </td>
@@ -95,7 +97,7 @@ export default function Results({ profile, runs, total, running, summary, provid
         <div className="space-y-3 rounded-xl border border-line bg-paper p-4">
           <div className="flex items-start justify-between gap-3">
             <div><div className="label">{label(open.provider)}</div><div className="font-semibold">{open.prompt}</div></div>
-            <button className="btn btn-ghost !px-3 !py-1" onClick={() => setOpen(null)}>Close</button>
+            <button type="button" className="btn btn-ghost !px-3 !py-1" onClick={() => setOpen(null)}>Close</button>
           </div>
           {detail.map((r) => (
             <article key={r.id} className="space-y-2 rounded-lg border border-line bg-white p-4">
@@ -112,7 +114,10 @@ export default function Results({ profile, runs, total, running, summary, provid
               {!r.mentioned && r.others.length > 0 && <p className="text-sm"><span className="text-muted">Named instead: </span>{r.others.slice(0, 8).join(", ")}</p>}
               {r.text && <details className="text-sm"><summary className="cursor-pointer text-muted">Full answer</summary><pre className="mt-2 whitespace-pre-wrap font-sans">{r.text}</pre></details>}
               {r.sources.length > 0 && (
-                <p className="text-xs text-muted">Sources: {r.sources.slice(0, 8).map((s, i) => <a key={i} className="mr-2 underline" href={s.url} target="_blank" rel="noopener noreferrer nofollow">{s.domain}</a>)}</p>
+                <p className="text-xs text-muted">Sources: {r.sources.slice(0, 8).map((s, i) => {
+                  const href = safeHref(s.url);
+                  return href ? <a key={i} className="mr-2 underline" href={href} target="_blank" rel={EXTERNAL_REL}>{s.domain}</a> : <span key={i} className="mr-2">{s.domain}</span>;
+                })}</p>
               )}
             </article>
           ))}

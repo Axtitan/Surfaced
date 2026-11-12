@@ -1,12 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ProviderError, type Provider, type Source } from "./types";
 import { dedupeSources, source } from "./util";
+import { CONFIG } from "./config";
 
-export const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
+export const CLAUDE_MODEL = CONFIG.claude.model;
 
 let client: Anthropic | null = null;
 export function claudeClient(): Anthropic {
-  return (client ??= new Anthropic({ maxRetries: 2, timeout: 180_000 }));
+  return (client ??= new Anthropic({ maxRetries: 2, timeout: CONFIG.claude.timeoutMs }));
 }
 
 export const claude: Provider = {
@@ -16,7 +17,7 @@ export const claude: Provider = {
   searchCapable: true,
   configured: () => !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
 
-  async ask(prompt, mode) {
+  async ask(prompt, mode, ctx) {
     const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: prompt }];
     let text = "";
     const cited: Source[] = [];
@@ -29,14 +30,17 @@ export const claude: Provider = {
       try {
         res = await claudeClient().beta.messages.create({
           model: CLAUDE_MODEL,
-          max_tokens: 16000,
+          max_tokens: CONFIG.claude.maxTokens,
           betas: ["server-side-fallback-2026-07-01"],
           fallbacks: "default",
-          ...(mode === "search" ? { tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }] } : {}),
+          ...(mode === "search" ? { tools: [{ type: "web_search_20260209", name: "web_search", max_uses: CONFIG.claude.maxSearches }] } : {}),
           messages,
-        });
+        }, { signal: ctx.signal });
       } catch (e) {
-        if (e instanceof Anthropic.RateLimitError || e instanceof Anthropic.InternalServerError) throw new ProviderError(`Claude: ${e.message}`, true, e.status);
+        if (e instanceof Anthropic.APIUserAbortError || ctx.signal?.aborted) throw new ProviderError("Claude: cancelled", false, undefined, "cancelled");
+        if (e instanceof Anthropic.RateLimitError) throw new ProviderError(`Claude: ${e.message}`, true, e.status, "rate_limited");
+        if (e instanceof Anthropic.APIConnectionTimeoutError) throw new ProviderError(`Claude: ${e.message}`, true, undefined, "timeout");
+        if (e instanceof Anthropic.InternalServerError) throw new ProviderError(`Claude: ${e.message}`, true, e.status);
         if (e instanceof Anthropic.APIError) throw new ProviderError(`Claude: ${e.message}`, false, e.status);
         throw new ProviderError(`Claude: ${(e as Error).message}`, true);
       }
@@ -49,10 +53,11 @@ export const claude: Provider = {
           for (const r of block.content) found.push(source(r.url, r.title));
         }
       }
-      if (res.stop_reason === "refusal") throw new ProviderError("Claude declined to answer this question.");
+      if (res.stop_reason === "refusal") throw new ProviderError("Claude declined to answer this question.", false, undefined, "refused");
       if (res.stop_reason !== "pause_turn") break;
       messages.push({ role: "assistant", content: res.content });
     }
+    if (!text.trim()) throw new ProviderError("Claude: empty answer", true, undefined, "empty");
     // Cited sources first; fall back to everything the search returned.
     return { text: text.trim(), sources: dedupeSources(cited.length ? cited : found), model };
   },

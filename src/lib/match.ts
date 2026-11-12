@@ -1,7 +1,24 @@
 /* Decides, from an answer's text and sources, whether it recommends the product.
    Deterministic on purpose: every verdict comes with the sentence that triggered it, so a user can check it. */
 
-const norm = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+// Fold case and diacritics (é -> e) so spellings compare equal; Unicode-aware, any script (§16.5).
+export const norm = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
+/** norm() plus, for each position in the result, the index in the original text, so evidence quotes the right place. */
+export function normWithMap(text: string): { n: string; map: number[] } {
+  let n = "";
+  const map: number[] = [];
+  let i = 0;
+  for (const ch of text) {
+    const f = norm(ch);
+    for (let k = 0; k < f.length; k++) map.push(i);
+    n += f;
+    i += ch.length;
+  }
+  map.push(i);
+  return { n, map };
+}
+// Scripts written without spaces between words: match as a substring (F-09).
+const NO_SPACES = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Domain roots too generic to count as a mention on their own.
@@ -27,17 +44,19 @@ export function brandTerms(b: Brand): string[] {
 }
 
 export function matcher(b: Brand) {
-  const res = brandTerms(b).map((t) => new RegExp(`(?<![a-z0-9])${esc(t)}(?![a-z0-9])`, "i"));
+  // Word boundaries are any letter or digit in any script, so a short name can't match inside a longer word.
+  const res = brandTerms(b).map((t) => NO_SPACES.test(t) ? new RegExp(esc(t), "u") : new RegExp(String.raw`(?<![\p{L}\p{N}])` + esc(t) + String.raw`(?![\p{L}\p{N}])`, "iu"));
   const domain = norm(b.domain).replace(/^www\./, "");
   return {
+    /** Index of the first mention in the original text, or -1. */
     test(text: string) {
-      const n = norm(text);
+      const { n, map } = normWithMap(text);
       let first = -1;
       for (const re of res) {
         const m = re.exec(n);
         if (m && (first < 0 || m.index < first)) first = m.index;
       }
-      return first;
+      return first < 0 ? -1 : map[first];
     },
     citesOwnSite(domains: string[]) {
       return !!domain && domains.some((d) => d === domain || d.endsWith(`.${domain}`));

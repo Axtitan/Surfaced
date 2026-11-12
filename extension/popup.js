@@ -64,7 +64,50 @@ function fillPage(kit) {
   return filled;
 }
 
+// Injected into an AI chat page. Self-contained. Returns the latest answer (or the user's selection) and its links.
+function readAnswer() {
+  const host = location.hostname;
+  const pick = (sels) => { for (const s of sels) { const all = document.querySelectorAll(s); if (all.length) return all[all.length - 1]; } return null; };
+  const sel = window.getSelection();
+  let el = null;
+  let text = sel && String(sel).trim().length > 40 ? String(sel).trim() : "";
+  if (!text) {
+    el = /chatgpt\.com$/.test(host) ? pick(['[data-message-author-role="assistant"]'])
+      : /claude\.ai$/.test(host) ? pick([".font-claude-response", "[data-is-streaming] .font-claude-message", ".font-claude-message"])
+      : /gemini\.google\.com$/.test(host) ? pick(["model-response message-content", "model-response", ".model-response-text"])
+      : /chat\.deepseek\.com$/.test(host) ? pick([".ds-markdown"])
+      : null;
+    text = el ? el.innerText.trim() : "";
+  }
+  const scope = el || (sel && sel.rangeCount ? sel.getRangeAt(0).cloneContents() : null);
+  const links = scope ? [...scope.querySelectorAll("a[href]")].map((a) => ({ url: a.href, title: (a.textContent || "").trim().slice(0, 200) })).filter((l) => /^https?:/.test(l.url)).slice(0, 40) : [];
+  return { text: text.slice(0, 60000), links };
+}
+
+const AI_SITES = { "chatgpt.com": "chatgpt", "claude.ai": "claude", "gemini.google.com": "gemini", "chat.deepseek.com": "deepseek" };
 const $ = (id) => document.getElementById(id);
+
+chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+  let host = "";
+  try { host = new URL(tab?.url || "").hostname; } catch { /* not a web page */ }
+  const provider = AI_SITES[host];
+  if (!provider) return;
+  $("capture").hidden = false;
+  $("grab").onclick = async () => {
+    try {
+      const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readAnswer });
+      const a = res?.result;
+      if (!a?.text) { $("capstatus").textContent = "No answer found. Select the answer text, then try again."; return; }
+      const { captures } = await chrome.storage.local.get(["captures"]);
+      const list = (Array.isArray(captures) ? captures : []).slice(-19);
+      list.push({ provider, text: a.text, links: a.links, at: Date.now() });
+      await chrome.storage.local.set({ captures: list });
+      $("capstatus").textContent = "Sent. Switch to your Surfaced tab to review and save it.";
+    } catch {
+      $("capstatus").textContent = "This page can't be read. Copy the answer and paste it into Surfaced instead.";
+    }
+  };
+});
 chrome.storage.local.get(["kit"], ({ kit }) => {
   if (!kit) return;
   $("who").textContent = `Kit for ${kit.name || kit.url}. Open a submission page, then fill it.`;

@@ -5,9 +5,10 @@ import type { Analysis, PlannedDestination, Profile } from "@/lib/types";
 import type { summarise } from "@/lib/score";
 import { jsonLd, llmsTxt } from "@/lib/fixes";
 import { track as trackEvent } from "@vercel/analytics";
+import { EXTERNAL_REL, safeHref } from "@/lib/safe-href";
 
 type Summary = ReturnType<typeof summarise>;
-type Status = "todo" | "opened" | "submitted" | "live" | "skip";
+type Status = "todo" | "opened" | "submitted" | "live" | "rejected" | "skip";
 export type Kit = { name: string; url: string; tagline: string; shortDescription: string; longDescription: string; keywords: string; pricing: string; platforms: string; alternativeTo: string; email: string; logoUrl: string; twitter: string };
 
 const GROUPS: { id: string; label: string; types: string[] }[] = [
@@ -18,7 +19,8 @@ const GROUPS: { id: string; label: string; types: string[] }[] = [
   { id: "community", label: "Communities", types: ["community", "subreddit", "github"] },
   { id: "market", label: "Marketplaces", types: ["marketplace"] },
 ];
-const STATUS_LABEL: Record<Status, string> = { todo: "To do", opened: "Opened", submitted: "Submitted", live: "Live", skip: "Skip" };
+const STATUS_LABEL: Record<Status, string> = { todo: "To do", opened: "Opened", submitted: "Submitted", live: "Live", rejected: "Rejected", skip: "Skip" };
+type PlanData = { destinations: PlannedDestination[]; extraCited: { domain: string; count: number }[]; total: number };
 const TYPE_LABEL: Record<string, string> = { directory: "Directory", "product-launch-site": "Launch", citation: "Press/citation", newsletter: "Newsletter", community: "Community", subreddit: "Subreddit", github: "GitHub list", marketplace: "Marketplace" };
 
 const load = <T,>(k: string, d: T): T => { try { return JSON.parse(localStorage.getItem(k) ?? "null") ?? d; } catch { return d; } };
@@ -35,7 +37,7 @@ function kitFrom(p: Profile): Kit {
 function Copy({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
-    <button type="button" className="btn btn-ghost !px-2.5 !py-1 !text-xs" onClick={async () => { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200); }}>
+    <button type="button" className="btn btn-ghost !px-2.5 !py-1 !text-xs" aria-live="polite" onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200); } catch { /* clipboard blocked */ } }}>
       {done ? "Copied" : label}
     </button>
   );
@@ -52,30 +54,32 @@ function download(name: string, text: string) {
 export default function FixPlan({ analysis, summary, section }: { analysis: Analysis; summary: Summary; onProfile: (p: Profile) => void; section: "listings" | "site" }) {
   const p = analysis.profile;
   const key = p.domain;
-  const [kit, setKit] = useState<Kit>(() => kitFrom(p));
-  const [track, setTrack] = useState<Record<string, Status>>({});
-  const [plan, setPlan] = useState<{ destinations: PlannedDestination[]; extraCited: { domain: string; count: number }[]; total: number } | null>(null);
+  // Rendered only in the browser inside ProjectView, so saved progress is read while initialising.
+  const [kit, setKit] = useState<Kit>(() => ({ ...kitFrom(p), ...load<Partial<Kit>>(`surfaced:kit:${key}`, {}) }));
+  const [track, setTrack] = useState<Record<string, Status>>(() => load(`surfaced:track:${key}`, {}));
+  const [plan, setPlan] = useState<PlanData | null>(null);
+  const [planState, setPlanState] = useState<"loading" | "ready" | "error">("loading");
+  const [retry, setRetry] = useState(0);
   const [group, setGroup] = useState("top");
   const [freeOnly, setFreeOnly] = useState(false);
   const [ext, setExt] = useState<"unknown" | "ready" | "sent">("unknown");
 
-  useEffect(() => {
-    setKit({ ...kitFrom(p), ...load<Partial<Kit>>(`surfaced:kit:${key}`, {}) });
-    setTrack(load(`surfaced:track:${key}`, {}));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
   useEffect(() => save(`surfaced:kit:${key}`, kit), [kit, key]);
   useEffect(() => save(`surfaced:track:${key}`, track), [track, key]);
 
   const citedKey = summary.domains.map(([d, c]) => `${d}:${c}`).join(",");
   useEffect(() => {
+    let live = true;
     fetch("/api/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: p.kind, categories: p.categories, citedDomains: Object.fromEntries(summary.domains), ai: p.categories.includes("ai"), category: p.category }),
-    }).then((r) => r.json()).then(setPlan).catch(() => setPlan(null));
+    }).then(async (r) => { if (!r.ok) throw new Error(String(r.status)); return r.json() as Promise<PlanData>; })
+      .then((d) => { if (live) { setPlan(d); setPlanState("ready"); } })
+      .catch(() => { if (live) setPlanState("error"); });
+    return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [citedKey, p.kind, p.categories.join(), p.category]);
+  }, [citedKey, p.kind, p.categories.join(), p.category, retry]);
 
   // The Surfaced browser extension announces itself and confirms when it has the kit.
   useEffect(() => {
@@ -98,11 +102,13 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
   }, [plan, group, freeOnly]);
 
   const st = (slug: string): Status => track[slug] ?? "todo";
-  const done = list.filter((d) => ["submitted", "live"].includes(st(d.slug))).length;
+  const done = list.filter((d) => ["submitted", "live", "rejected"].includes(st(d.slug))).length;
   const nextUp = list.find((d) => st(d.slug) === "todo");
 
   function openDest(d: PlannedDestination) {
-    window.open(d.url, "_blank", "noopener,noreferrer");
+    const href = safeHref(d.url);
+    if (!href) return;
+    window.open(href, "_blank", "noopener,noreferrer");
     trackEvent("listing_opened", { type: d.type });
     setTrack((t) => ({ ...t, [d.slug]: t[d.slug] && t[d.slug] !== "todo" ? t[d.slug] : "opened" }));
   }
@@ -179,9 +185,16 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
           </button>
         )}
         <ul className="divide-y divide-line rounded-xl border border-line">
-          {!plan && <li className="p-4 text-sm text-muted">Ranking destinations…</li>}
+          {planState === "loading" && !plan && <li className="p-4 text-sm text-muted" role="status">Ranking destinations…</li>}
+          {planState === "error" && (
+            <li className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="alert">
+              <span className="text-bad">Couldn&apos;t load the list of places to submit.</span>
+              <button type="button" className="btn btn-ghost !py-1.5 !text-sm" onClick={() => { setPlanState("loading"); setRetry((n) => n + 1); }}>Try again</button>
+            </li>
+          )}
+          {planState === "ready" && !list.length && <li className="p-4 text-sm text-muted">Nothing in this group{freeOnly ? " is free" : ""}. Try another group.</li>}
           {list.map((d) => (
-            <li key={d.slug} className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center ${["submitted", "live", "skip"].includes(st(d.slug)) ? "opacity-60" : ""}`}>
+            <li key={d.slug} className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center ${["submitted", "live", "rejected", "skip"].includes(st(d.slug)) ? "opacity-60" : ""}`}>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{d.name}</span>
@@ -191,10 +204,10 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
                   {d.citedByAI > 0 && <span className="chip !bg-ink !text-white">AI cites this</span>}
                 </div>
                 <p className="mt-1 truncate text-sm text-muted">{d.reasons.filter((r) => !/^DR|^Free$/.test(r)).join(" · ") || d.description}</p>
-                {d.rules && <a className="text-xs underline" href={d.rules} target="_blank" rel="noopener noreferrer">Read the posting rules first</a>}
+                {safeHref(d.rules) && <a className="text-xs underline" href={safeHref(d.rules)} target="_blank" rel={EXTERNAL_REL}>Read the posting rules first</a>}
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <button type="button" className="btn btn-ghost !py-1.5 !text-sm" onClick={() => openDest(d)}>Open</button>
+                <button type="button" className="btn btn-ghost !py-1.5 !text-sm" onClick={() => openDest(d)} disabled={!safeHref(d.url)} aria-label={`Open ${d.name}`}>Open</button>
                 <select className="field !w-auto !py-1.5 !text-sm" value={st(d.slug)} onChange={(e) => setTrack((t) => ({ ...t, [d.slug]: e.target.value as Status }))} aria-label={`Status for ${d.name}`}>
                   {(Object.keys(STATUS_LABEL) as Status[]).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                 </select>
@@ -206,7 +219,7 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
           <div className="rounded-xl bg-paper p-4 text-sm">
             <p className="font-semibold">Also cited by the AIs, but not open for submissions</p>
             <p className="mt-1 text-muted">Pitch these directly: offer the author a demo, a quote or data, or ask to be added to their comparison.</p>
-            <div className="mt-2 flex flex-wrap gap-2">{plan.extraCited.map((x) => <a key={x.domain} className="chip underline" href={`https://${x.domain}`} target="_blank" rel="noopener noreferrer nofollow">{x.domain} · {x.count}</a>)}</div>
+            <div className="mt-2 flex flex-wrap gap-2">{plan.extraCited.map((x) => { const href = safeHref(`https://${x.domain}`); return href ? <a key={x.domain} className="chip underline" href={href} target="_blank" rel={EXTERNAL_REL}>{x.domain} · {x.count}</a> : null; })}</div>
           </div>
         )}
       </div>

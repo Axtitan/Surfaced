@@ -9,11 +9,18 @@ alternative to a name the AI already knows puts it next to that name in the answ
 
 ## Pages
 
-- `/`: the landing page. The hero background is `public/hero.webp`, generated with ChatGPT.
+- `/`: the landing page. The hero background is `src/assets/hero.webp` (generated with ChatGPT), served through
+  `next/image` in AVIF/WebP with a blur placeholder.
+- Marketing: `/pricing`, `/how-it-works`, `/for/agencies`, `/for/local-business`, `/changelog`.
+- Free tools: `/tools/ai-crawler-check`, `/tools/llms-txt-generator`, `/tools/json-ld-generator`.
+- Directory guides: `/directories` and `/directories/<slug>`, built at deploy time from the catalog entries with enough detail.
+- Legal drafts: `/privacy`, `/terms`, `/cookies`, `/acceptable-use`, `/security`, `/subprocessors`, `/refunds`. Contact
+  details come from `NEXT_PUBLIC_SUPPORT_EMAIL`, `SECURITY_CONTACT` and `NEXT_PUBLIC_COMPANY_NAME`.
+- Machine-readable: `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/.well-known/security.txt` (once a contact is set).
 - `/app`: the dashboard, listing every website checked in this browser.
 - `/app/new`: start a check.
 - `/app/p/<domain>`: one check, with tabs for Questions, Answers & score, Get listed and Site fixes.
-- `/app/settings`: AI connections, the extension, and data export.
+- `/app/settings`: AI connections, the extension, data export and "delete all data in this browser".
 
 There are no accounts yet. Checks live in the browser's localStorage (`surfaced:projects`, `surfaced:project:<domain>`).
 
@@ -42,7 +49,7 @@ Without an Anthropic key the questions come from a template, so the new-check fo
    the products named instead, and the sources the AI cited.
 4. **Fix plan.**
    - **Where to submit:** destinations from the [Submitlist](https://github.com/alvinunreal/awesome-submitlist)
-     catalog (3,477 hand-checked places, CC0), ranked for the product. Comparison sites come first, plus any
+     catalog (about 3,500 hand-checked places, CC0), ranked for the product. Comparison sites come first, plus any
      site the AIs actually cited in this scan.
    - **Listing kit:** written once and reused for every submission.
    - **Tracker:** a status for each destination.
@@ -64,17 +71,39 @@ npm run dev                  # http://localhost:3100
 
 - **Providers:** any provider without a key shows as "not connected". `SURFACED_DEMO=1` simulates answers for
   them, for UI work only. The UI labels these answers and demo mode is ignored in production.
-- **Extension:** in Chrome, open `chrome://extensions`, turn on Developer mode, choose **Load unpacked** and
-  pick `extension/`. It connects on localhost:3100 and `*.vercel.app`; add a custom domain to `content_scripts.matches` in
-  `extension/manifest.json`.
+- **Extension:** build it for the site it should talk to, then load it unpacked. It only connects to the exact
+  origin you give (no wildcard domains):
+
+  ```bash
+  npm run ext:build -- https://your-deployment.example --with-localhost
+  ```
+
+  In Chrome, open `chrome://extensions`, turn on Developer mode, choose **Load unpacked** and pick `extension-dist/`.
+  The unbuilt `extension/` folder works on `localhost:3100` only.
 - **Catalog refresh:** `npm run sync:destinations` pulls the latest Submitlist catalog (it syncs weekly).
+
+## Checks
+
+```bash
+npm run lint         # ESLint (Next, React hooks, accessibility, no raw HTML injection)
+npm run typecheck
+npm test             # unit tests (Vitest)
+npm run test:e2e     # browser tests with axe accessibility checks (Playwright; first run: npx playwright install chromium)
+npm run smoke -- https://your-deployment.example   # after a deploy
+```
+
+CI (`.github/workflows/ci.yml`) runs all of these plus a secret scan, `npm audit`, the build and Lighthouse on mobile.
+`tests/load/public-pages.k6.js` is a k6 load test for the public pages; never point load tests at the paid scan endpoints.
 
 ## Deploy on Vercel
 
 1. In Vercel, choose **Add New → Project**, import `Axtitan/Surfaced`, and deploy. Vercel detects Next.js; free mode needs no
    environment variables.
-2. Optional: add the API keys from `.env.example` under **Settings → Environment Variables** to turn on automatic mode.
-   `SURFACED_DEMO` has no effect in production.
+2. Don't add AI API keys to the public deployment yet. In production, paid AI calls stay off until accounts and spend
+   limits exist (`AUTH_ENABLED=1`, which needs the sign-in work first). Keys in a preview deployment protected by Vercel
+   Authentication are fine for testing. `SURFACED_DEMO` has no effect in production, and `SURFACED_PAUSE_SCANS=1` stops
+   every automatic scan at once.
+   Optional now: `NEXT_PUBLIC_SITE_URL` for a custom domain, and the contact variables for the legal pages.
 3. Turn on **Analytics** in the project. On Hobby it records page views: the landing page, `/app/new` (checks started) and
    `/app/p/[id]` (checks opened). The checked domains are stripped from URLs before sending. The `track()` events
    (`check_started`, `answer_pasted`, `auto_scan_started`, `listing_opened`) only show on Pro.

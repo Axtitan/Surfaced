@@ -5,6 +5,13 @@ node_modules/
 *.tsbuildinfo
 next-env.d.ts
 
+# Build and test output
+extension-dist/
+playwright-report/
+test-results/
+blob-report/
+.lighthouseci/
+
 # Private planning files: kept on this machine only.
 docs/
 CLAUDE.md

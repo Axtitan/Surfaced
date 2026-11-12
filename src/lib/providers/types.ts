@@ -10,8 +10,8 @@ export type Answer = {
   demo?: boolean;
 };
 
-/** What the demo provider needs to fake a plausible answer. Real providers ignore it. */
-export type AskContext = { brand: string; competitors: string[]; seed: number };
+/** What the demo provider needs to fake a plausible answer, plus the signal that cancels the call. */
+export type AskContext = { brand: string; competitors: string[]; seed: number; signal?: AbortSignal };
 
 export interface Provider {
   id: ProviderId;
@@ -23,8 +23,22 @@ export interface Provider {
   ask(prompt: string, mode: Mode, ctx: AskContext): Promise<Answer>;
 }
 
+/** kind is what the user may be told; message stays on the server (F-13). */
+export type ProviderErrorKind = "rate_limited" | "timeout" | "unavailable" | "refused" | "empty" | "cancelled";
+
 export class ProviderError extends Error {
-  constructor(message: string, public retryable = false, public status?: number) {
+  constructor(message: string, public retryable = false, public status?: number, public kind: ProviderErrorKind = "unavailable") {
     super(message);
   }
 }
+
+/** Messages safe to show in the browser, by error kind. */
+export const SAFE_ERROR: Record<ProviderErrorKind | "deadline", string> = {
+  rate_limited: "The AI was busy (rate limited). Try again later.",
+  timeout: "The AI took too long to answer.",
+  unavailable: "The AI couldn't answer right now.",
+  refused: "The AI declined to answer this question.",
+  empty: "The AI returned an empty answer.",
+  cancelled: "Stopped before this question was answered.",
+  deadline: "Not answered in time. Ask fewer questions or fewer repeats.",
+};

@@ -27,7 +27,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("storage", load);
     return () => { window.removeEventListener(CHANGED, load); window.removeEventListener("storage", load); };
   }, []);
-  useEffect(() => setOpen(false), [path]);
+  // Close the mobile menu when the page changes (adjusting state during render, not in an effect).
+  const [menuPath, setMenuPath] = useState(path);
+  if (menuPath !== path) { setMenuPath(path); setOpen(false); }
 
   const item = (href: string, active: boolean, children: React.ReactNode) => (
     <Link key={href} href={href} className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ${active ? "bg-white font-medium text-ink shadow-[0_1px_2px_rgba(20,22,26,.06)] ring-1 ring-line" : "text-muted hover:bg-white/70 hover:text-ink"}`}>
@@ -74,7 +76,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-[#f2f2ef] shadow-xl">{sidebar}</aside>
         </div>
       )}
-      <main className="min-w-0">{children}</main>
+      <main id="main" tabIndex={-1} className="min-w-0 outline-none">{children}</main>
     </div>
   );
 }

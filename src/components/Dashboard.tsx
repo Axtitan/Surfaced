@@ -19,7 +19,8 @@ export default function Dashboard() {
     const load = () => setProjects(listProjects());
     load();
     window.addEventListener(CHANGED, load);
-    return () => window.removeEventListener(CHANGED, load);
+    window.addEventListener("storage", load); // another tab changed the checks
+    return () => { window.removeEventListener(CHANGED, load); window.removeEventListener("storage", load); };
   }, []);
 
   const scored = projects?.filter((p) => p.score != null) ?? [];
@@ -57,6 +58,11 @@ export default function Dashboard() {
           <Link href="/app/new" className="btn btn-primary mt-6">Run your first check</Link>
         </div>
       )}
+      {!projects && (
+        <ul className="mt-4 grid gap-3 md:grid-cols-2" aria-busy="true" aria-label="Loading your checks">
+          {[0, 1].map((i) => <li key={i} className="card h-[98px] animate-pulse bg-[#f4f5f7]" />)}
+        </ul>
+      )}
       <ul className="mt-4 grid gap-3 md:grid-cols-2">
         {projects?.map((m) => {
           const sub = submittedCount(m.id);
@@ -69,10 +75,10 @@ export default function Dashboard() {
                 <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
                   <span>{m.answers ? `${m.answers} answers` : "Not asked yet"}</span>
                   <span>{sub} listing{sub === 1 ? "" : "s"} submitted</span>
-                  <span>Updated {ago(m.updatedAt)}</span>
+                  <span>Updated <time dateTime={new Date(m.updatedAt).toISOString()} title={new Date(m.updatedAt).toLocaleString()}>{ago(m.updatedAt)}</time></span>
                 </div>
               </div>
-              <button type="button" className="relative z-10 rounded-md px-2 py-1 text-xs text-muted opacity-100 hover:bg-[#eef0f4] hover:text-bad sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+              <button type="button" aria-label={`Delete the check for ${m.domain}`} className="relative z-10 rounded-md px-2 py-1 text-xs text-muted opacity-100 hover:bg-[#eef0f4] hover:text-bad sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
                 onClick={() => { if (confirm(`Delete the check for ${m.domain}? Its answers and listing progress will be removed from this browser.`)) deleteProject(m.id); }}>
                 Delete
               </button>

@@ -44,6 +44,7 @@ export function jsonLd(p: Profile) {
       ...(/^free$/i.test(p.listing.pricing) ? { offers: { "@type": "Offer", price: "0", priceCurrency: "USD" } } : {}),
     };
   }
-  const json = JSON.stringify({ "@context": "https://schema.org", "@graph": [org, item] }, null, 2);
+  // Escape "<" so text like "</script>" in the site's own description can't close the tag (F-14).
+  const json = JSON.stringify({ "@context": "https://schema.org", "@graph": [org, item] }, null, 2).replace(/</g, "\\u003c");
   return `<script type="application/ld+json">\n${json}\n</script>`;
 }
