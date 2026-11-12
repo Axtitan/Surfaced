@@ -19,13 +19,15 @@ const csp = [
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
-  ...(dev ? [] : ["upgrade-insecure-requests"]),
+  // Browsers ignore this directive in a report-only policy (and log a console error), so send it only when enforcing.
+  ...(dev || process.env.CSP_ENFORCE !== "1" ? [] : ["upgrade-insecure-requests"]),
   "report-uri /api/csp-report",
 ].join("; ");
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  images: { formats: ["image/avif", "image/webp"] },
+  // Image sources are content-hashed imports, so optimised copies can be cached for 31 days (default: 4 hours).
+  images: { formats: ["image/avif", "image/webp"], minimumCacheTTL: 2_678_400 },
   async headers() {
     return [
       {

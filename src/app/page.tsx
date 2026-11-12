@@ -75,7 +75,7 @@ export default function Home() {
           <Link href="/how-it-works" className="mt-10 inline-block text-sm font-medium underline underline-offset-4">More on how it works →</Link>
         </section>
 
-        <section className="bg-paper">
+        <section className="below-fold bg-paper">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 sm:px-8 md:grid-cols-2">
             <div>
               <p className="label">Proof, not guesses</p>
@@ -90,7 +90,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
+        <section className="below-fold mx-auto max-w-6xl px-5 py-24 sm:px-8">
           <div className="grid gap-10 md:grid-cols-[1fr_1.2fr] md:items-end">
             <div>
               <p className="label">Where we get you listed</p>
@@ -104,7 +104,7 @@ export default function Home() {
           </ul>
         </section>
 
-        <section id="pricing" className="scroll-mt-8 bg-paper">
+        <section id="pricing" className="below-fold scroll-mt-8 bg-paper">
           <div className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
             <p className="label text-center">Pricing</p>
             <h2 className="mt-3 text-center font-display text-4xl sm:text-5xl">Free while we build the rest</h2>
@@ -114,7 +114,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="faq" className="mx-auto max-w-3xl scroll-mt-8 px-5 py-24 sm:px-8">
+        <section id="faq" className="below-fold mx-auto max-w-3xl scroll-mt-8 px-5 py-24 sm:px-8">
           <h2 className="text-center font-display text-4xl sm:text-5xl">Questions</h2>
           <div className="mt-12 divide-y divide-line border-y border-line">
             {FAQ.map((f) => (
@@ -128,7 +128,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="px-5 pb-16 sm:px-8">
+        <section className="below-fold px-5 pb-16 sm:px-8">
           <div className="relative isolate mx-auto max-w-6xl overflow-hidden rounded-[32px] px-6 py-20 text-center">
             <BandBackdrop />
             <div className="absolute inset-0 -z-10 bg-white/60" />

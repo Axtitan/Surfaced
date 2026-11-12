@@ -5,7 +5,7 @@ import Tracking from "@/components/Tracking";
 import { BRAND, SITE_URL } from "@/lib/site-url";
 
 const sans = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const display = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap", axes: ["opsz", "SOFT"] });
+const display = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap", axes: ["opsz"] });
 
 const description = "Check whether ChatGPT, Claude, Gemini and DeepSeek recommend your business, then get listed on the sites they read.";
 
@@ -26,7 +26,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         <a href="#main" className="skip-link">Skip to content</a>
         {children}
-        <Tracking />
+        {/* The analytics script is served by Vercel only; elsewhere it would 404 and log errors. */}
+        {process.env.VERCEL === "1" && <Tracking />}
       </body>
     </html>
   );
