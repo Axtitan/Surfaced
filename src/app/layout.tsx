@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
+import Tracking from "@/components/Tracking";
 
 const sans = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const display = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap", axes: ["opsz", "SOFT"] });
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${display.variable}`}>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">{children}<Tracking /></body>
     </html>
   );
 }

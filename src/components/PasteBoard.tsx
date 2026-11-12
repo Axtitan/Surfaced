@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Profile, ProviderId, Run } from "@/lib/types";
+import { track } from "@vercel/analytics";
 import { judge } from "@/lib/match";
 import { dedupeSources, source } from "@/lib/providers/util";
 
@@ -94,6 +95,7 @@ export default function PasteBoard({ profile, prompts, runs, onRuns }: {
       sources, text: answer.slice(0, 8000), model: `${meta.name} app`, via: "paste", ms: 0,
     };
     onRuns([...runs.filter((r) => !(r.via === "paste" && r.provider === app && r.prompt === question)), run]);
+    if (!existing) track("answer_pasted", { ai: app });
     next();
   }
 
