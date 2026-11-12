@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Surfaced: listing autofill",
+  "version": "0.1.0",
+  "description": "Fills directory and launch-site submission forms with your Surfaced listing kit. You review every field and press submit yourself.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": { "default_popup": "popup.html", "default_title": "Surfaced" },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3100/*", "http://127.0.0.1:3100/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
