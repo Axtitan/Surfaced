@@ -1,4 +1,8 @@
 import type { ProviderId, Run } from "./types";
+import { matcher, type Brand } from "./match";
+
+/** Bump when the score formula changes, so old and new scores are never compared silently (§9.6). */
+export const SCORE_VERSION = 1;
 
 export type ProviderScore = { id: ProviderId; runs: number; mentioned: number; rate: number; avgRank: number | null; cited: number; errors: number };
 
@@ -46,4 +50,31 @@ export function interval(k: number, n: number): [number, number] {
   const z = 1.96, p = k / n, d = 1 + (z * z) / n;
   const c = (p + (z * z) / (2 * n)) / d, h = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / d;
   return [Math.max(0, c - h), Math.min(1, c + h)];
+}
+
+export type VoiceRow = { name: string; isYou: boolean; answers: number; share: number; avgRank: number | null };
+
+/**
+ * Share of voice (§9.6): in how many scored answers each name appears, for the brand and each tracked competitor.
+ * `share` is that name's mentions over all mentions of the tracked names, so the column adds up to 100%.
+ */
+export function shareOfVoice(runs: Run[], brand: Brand, competitors: string[]): VoiceRow[] {
+  const ok = runs.filter((r) => r.ok && (r.mode === "search" || r.provider === "deepseek"));
+  const names = [{ name: brand.name, isYou: true, m: matcher(brand) },
+    ...competitors.slice(0, 12).map((c) => ({ name: c, isYou: false, m: matcher({ name: c, aliases: [], domain: "" }) }))];
+  const rows = names.map(({ name, isYou, m }) => {
+    const hits = ok.filter((r) => (isYou ? r.mentioned : m.test(r.text) >= 0));
+    const ranks = isYou
+      ? hits.map((r) => r.rank).filter((x): x is number => x != null)
+      : hits.map((r) => r.others.findIndex((o) => m.test(o) >= 0)).filter((i) => i >= 0).map((i) => i + 1);
+    return { name, isYou, answers: hits.length, avgRank: ranks.length ? ranks.reduce((a, b) => a + b, 0) / ranks.length : null };
+  });
+  const all = rows.reduce((n, r) => n + r.answers, 0);
+  return rows.map((r) => ({ ...r, share: all ? r.answers / all : 0 })).sort((a, b) => b.answers - a.answers || Number(b.isYou) - Number(a.isYou));
+}
+
+/** Share of scored answers that link to the brand's own site. */
+export function citationRate(runs: Run[]): number | null {
+  const ok = runs.filter((r) => r.ok && (r.mode === "search" || r.provider === "deepseek"));
+  return ok.length ? ok.filter((r) => r.cited).length / ok.length : null;
 }

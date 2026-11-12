@@ -9,6 +9,7 @@ export type ProjectMeta = { id: string; name: string; domain: string; score: num
 
 const INDEX = "surfaced:projects";
 const key = (id: string) => `surfaced:project:${id}`;
+export const projectKey = key;
 export const CHANGED = "surfaced:projects-changed";
 const ALL: ProviderId[] = ["chatgpt", "claude", "gemini", "deepseek"];
 
@@ -17,8 +18,11 @@ const write = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.st
 
 export const projectId = (domain: string) => domain.toLowerCase().replace(/^www\./, "").replace(/[^a-z0-9.-]/g, "");
 
-/** The answers that count for the project's current mode (pasted vs automatic). */
-export const modeRuns = (p: Pick<Project, "runs" | "mode">) => p.runs.filter((r) => (p.mode === "paste" ? r.via === "paste" : r.via !== "paste"));
+/** The answers that count for the project's current mode (pasted vs automatic), for questions still in the list (F-11). */
+export const modeRuns = (p: Pick<Project, "runs" | "mode"> & { analysis?: Pick<Analysis, "prompts"> }) => {
+  const live = p.analysis ? new Set(p.analysis.prompts) : null;
+  return p.runs.filter((r) => (p.mode === "paste" ? r.via === "paste" : r.via !== "paste") && (!live || live.has(r.prompt)));
+};
 
 export function scoreOf(runs: Run[]) {
   const ok = runs.filter((r) => r.ok);
@@ -68,6 +72,23 @@ export function deleteProject(id: string) {
 /** Listings marked submitted or live for a project. */
 export function submittedCount(id: string) {
   return Object.values(read<Record<string, string>>(`surfaced:track:${id}`, {})).filter((s) => s === "submitted" || s === "live").length;
+}
+
+/** Removes every check, kit and tracker this app saved in this browser. */
+export function clearAll() {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith("surfaced:")) keys.push(k); }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+  window.dispatchEvent(new Event(CHANGED));
+}
+
+/** Rough share of this browser's storage that Surfaced uses, for the storage warning (F-12). */
+export function storageBytes() {
+  let n = 0;
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i) ?? ""; if (k.startsWith("surfaced:")) n += k.length + (localStorage.getItem(k)?.length ?? 0); } } catch { /* ignore */ }
+  return n * 2;
 }
 
 export function exportAll() {

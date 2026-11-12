@@ -18,12 +18,14 @@ const COPY: Record<Audience, { sub: string; placeholder: string }> = {
 };
 
 const LINKS = [
-  { href: "#how", label: "How it works" },
-  { href: "#pricing", label: "Pricing" },
+  { href: "/how-it-works", label: "How it works" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/tools/ai-crawler-check", label: "Free tools" },
   { href: "#faq", label: "FAQ" },
 ];
 
-export default function Top() {
+/** Landing hero. The illustration is rendered on the server and passed in as `backdrop`. */
+export default function Top({ backdrop }: { backdrop?: React.ReactNode }) {
   const router = useRouter();
   const [aud, setAud] = useState<Audience>("products");
   const [url, setUrl] = useState("");
@@ -31,14 +33,7 @@ export default function Top() {
 
   return (
     <div className="relative isolate overflow-hidden">
-      {/* Illustration sits at the bottom; the white wash keeps the text area clean. */}
-      <div className="absolute inset-0 -z-10">
-        <picture>
-          <source media="(max-width: 640px)" srcSet="/hero-sm.webp" />
-          <img src="/hero.webp" alt="" className="h-full w-full object-cover object-[50%_75%]" fetchPriority="high" />
-        </picture>
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-white/85 via-40% to-white/0 to-75%" />
-      </div>
+      {backdrop}
 
       <header className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-5 sm:px-8">
         <Link href="/" className="text-ink" aria-label="Surfaced home"><Logo /></Link>
@@ -51,18 +46,19 @@ export default function Top() {
           ))}
         </div>
         <nav className="mx-auto hidden items-center gap-8 text-sm lg:flex" aria-label="Main">
-          {LINKS.map((l) => <a key={l.href} href={l.href} className="text-ink/80 hover:text-ink">{l.label}</a>)}
+          {LINKS.map((l) => <Link key={l.href} href={l.href} className="text-ink/80 hover:text-ink">{l.label}</Link>)}
         </nav>
         <div className="ml-auto flex items-center gap-2 lg:ml-0">
-          <Link href="/app" className="hidden px-3 text-sm font-medium sm:inline">Sign in</Link>
+          {/* There are no accounts yet, so this opens the app rather than promising a sign-in (F-18). */}
+          <Link href="/app" className="hidden px-3 text-sm font-medium sm:inline">Open app</Link>
           <Link href="/app/new" className="btn border border-ink bg-white/70 !px-5 text-ink backdrop-blur hover:bg-white">Start free</Link>
         </div>
       </header>
 
       <section className="mx-auto flex min-h-[640px] max-w-4xl flex-col items-center px-5 pb-40 pt-14 text-center sm:min-h-[760px] sm:pt-24 sm:pb-56">
-        <a href="#pricing" className="rounded-full bg-sky-100/90 px-3.5 py-1.5 text-xs text-sky-950 sm:text-sm">
-          <span className="font-semibold">New:</span> free mode, check with your own AI accounts
-        </a>
+        <Link href="/how-it-works" className="rounded-full bg-sky-100/90 px-3.5 py-1.5 text-xs text-sky-950 sm:text-sm">
+          <span className="font-semibold">Free:</span> check with your own AI accounts
+        </Link>
         <h1 className="mt-6 font-display text-[2.6rem] leading-[1.05] tracking-tight text-ink sm:text-6xl md:text-7xl">
           Be the answer when<br className="hidden sm:block" /> buyers ask AI
         </h1>
@@ -71,10 +67,10 @@ export default function Top() {
         <form className="mt-9 flex w-full max-w-xl flex-col gap-2 rounded-[28px] bg-white p-1.5 shadow-[0_10px_40px_-12px_rgba(20,22,26,.35)] ring-1 ring-ink/10 sm:flex-row sm:rounded-full"
           onSubmit={(e) => { e.preventDefault(); router.push(`/app/new?url=${encodeURIComponent(url)}&go=1`); }}>
           <input className="min-w-0 flex-1 rounded-full bg-transparent px-5 py-3 text-base outline-none placeholder:text-muted" placeholder={c.placeholder}
-            value={url} onChange={(e) => setUrl(e.target.value)} required aria-label="Your website" inputMode="url" />
+            value={url} onChange={(e) => setUrl(e.target.value)} required aria-label="Your website" inputMode="url" autoComplete="url" />
           <button className="btn btn-primary !px-6 !py-3 text-[0.95rem]">Check my visibility <span aria-hidden>→</span></button>
         </form>
-        <p className="mt-3 text-sm text-ink/60">Free. No sign-up. <a href="#how" className="underline underline-offset-2 hover:text-ink">See how it works</a></p>
+        <p className="mt-3 text-sm text-ink/70">Free. No sign-up. <Link href="/how-it-works" className="underline underline-offset-2 hover:text-ink">See how it works</Link></p>
 
         <div className="mt-14">
           <p className="text-sm text-ink/70">Checks the answers from</p>

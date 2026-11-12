@@ -6,7 +6,11 @@ const SOURCE = "https://raw.githubusercontent.com/alvinunreal/awesome-submitlist
 const local = process.argv[2];
 const raw = local ? JSON.parse(await readFile(local, "utf8")) : await (await fetch(SOURCE)).json();
 
+// Only http(s) links reach the app (F-05): anything else is dropped.
+const web = (u) => { try { const x = new URL(String(u ?? "").trim()); return x.protocol === "https:" || x.protocol === "http:" ? x.toString() : undefined; } catch { return undefined; } };
+
 const out = raw.destinations
+  .map((d) => ({ ...d, submission_url: web(d.submission_url), website_url: web(d.website_url), rules_url: web(d.subreddit?.rules_url) }))
   .filter((d) => d.submission_url || d.website_url)
   .map((d) => ({
     slug: d.slug,
@@ -23,7 +27,7 @@ const out = raw.destinations
     categories: d.categories || [],
     eligibility: d.eligibility || undefined,
     promotion: d.subreddit?.promotion_mode,
-    rules: d.subreddit?.rules_url,
+    rules: d.rules_url,
   }));
 
 await writeFile(

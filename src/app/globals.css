@@ -11,8 +11,8 @@
   --color-line: #e3e5e9;
   --color-paper: #f7f7f5;
   --color-brand: #3b5bfd;
-  --color-good: #138a52;
-  --color-warn: #b7791f;
+  --color-good: #0f7a48;
+  --color-warn: #975a16;
   --color-bad: #c2362f;
 }
 
@@ -32,3 +32,25 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 .field:focus { outline: 2px solid var(--color-brand); outline-offset: -1px; }
 .chip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .15rem .6rem; font-size: .75rem; font-weight: 600; background: #eef0f4; color: var(--color-muted); }
 .label { font-size: .78rem; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: .04em; }
+
+/* "Skip to content": hidden until focused by keyboard (§16.4). */
+.skip-link { position: absolute; left: .75rem; top: -4rem; z-index: 100; border-radius: 999px; background: var(--color-ink); color: #fff; padding: .6rem 1rem; font-weight: 600; font-size: .9rem; }
+.skip-link:focus { top: .75rem; }
+
+/* Long-form pages (legal, guides). */
+.prose-page { line-height: 1.7; color: var(--color-ink); }
+.prose-page h2 { margin-top: 2.5rem; font-size: 1.35rem; font-weight: 600; }
+.prose-page h3 { margin-top: 1.75rem; font-size: 1.05rem; font-weight: 600; }
+.prose-page p, .prose-page ul, .prose-page ol, .prose-page table { margin-top: .9rem; }
+.prose-page ul { list-style: disc; padding-left: 1.25rem; }
+.prose-page ol { list-style: decimal; padding-left: 1.25rem; }
+.prose-page li + li { margin-top: .35rem; }
+.prose-page a { text-decoration: underline; text-underline-offset: 3px; }
+.prose-page table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.prose-page th, .prose-page td { border-bottom: 1px solid var(--color-line); padding: .5rem .5rem .5rem 0; text-align: left; vertical-align: top; }
+.prose-page code { font-size: .88em; background: #eef0f4; border-radius: 6px; padding: .05rem .3rem; }
+
+/* Respect reduced motion (§16.4). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

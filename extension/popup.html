@@ -5,6 +5,7 @@
 <style>
   body { width: 300px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: #14161a; }
   h1 { font-size: 15px; margin: 0 0 4px; }
+  h2 { font-size: 13px; margin: 12px 0 2px; }
   p { margin: 6px 0; color: #5d6470; }
   button { width: 100%; padding: 9px; border: 0; border-radius: 9px; background: #14161a; color: #fff; font-weight: 600; cursor: pointer; margin-top: 8px; }
   button:disabled { opacity: .5; cursor: default; }
@@ -12,16 +13,28 @@
   .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; }
   .row span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .row a { color: #3b5bfd; cursor: pointer; flex-shrink: 0; }
-  #status { font-weight: 600; color: #138a52; }
+  .ok { font-weight: 600; color: #138a52; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
   <h1>Surfaced</h1>
-  <p id="who">No listing kit yet. Open Surfaced and click “Send kit to the extension”.</p>
-  <button id="fill" disabled>Fill this page</button>
-  <p id="status"></p>
-  <p>Check every field before you submit. Surfaced never submits forms for you.</p>
-  <div class="fields" id="fields"></div>
+
+  <section id="capture" hidden>
+    <h2>Send this answer to Surfaced</h2>
+    <p>Takes the AI's latest answer (or the text you've selected) with its links. It appears in your open check for you to review and save.</p>
+    <button id="grab">Send answer to Surfaced</button>
+    <p id="capstatus" class="ok" role="status"></p>
+  </section>
+
+  <section id="kitsection">
+    <h2>Fill a submission form</h2>
+    <p id="who">No listing kit yet. Open Surfaced and click “Send kit to the extension”.</p>
+    <button id="fill" disabled>Fill this page</button>
+    <p id="status" class="ok" role="status"></p>
+    <p>Check every field before you submit. Surfaced never submits forms for you.</p>
+    <div class="fields" id="fields"></div>
+  </section>
   <script src="popup.js"></script>
 </body>
 </html>
