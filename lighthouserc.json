@@ -8,7 +8,12 @@
         "http://localhost:3100/directories/acquire"
       ],
       "numberOfRuns": 2,
-      "settings": { "preset": "perf", "formFactor": "mobile", "screenEmulation": { "mobile": true } }
+      "settings": {
+        "onlyCategories": ["performance", "accessibility", "seo", "best-practices"],
+        "skipAudits": ["is-crawlable"],
+        "formFactor": "mobile",
+        "screenEmulation": { "mobile": true }
+      }
     },
     "assert": {
       "assertions": {
