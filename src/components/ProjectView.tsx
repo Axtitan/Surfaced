@@ -6,7 +6,7 @@ import type { AiId, Analysis, ProviderId } from "@/lib/types";
 import { ALL_AIS } from "@/lib/ais";
 import { track } from "@vercel/analytics";
 import { summarise } from "@/lib/score";
-import { getProject, modeRuns, projectKey, saveProject, submittedCount, type AnswerMode, type Project } from "@/lib/store";
+import { getProject, modeRuns, projectEstimate, projectKey, saveProject, submittedCount, type AnswerMode, type Project } from "@/lib/store";
 import { autoRunsAfter } from "@/lib/scan-machine";
 import { EXTERNAL_REL, safeHref } from "@/lib/safe-href";
 import ProfileEditor, { type QuestionChange } from "./ProfileEditor";
@@ -17,6 +17,7 @@ import Competitors from "./Competitors";
 import CitedPages from "./CitedPages";
 import Overview from "./Overview";
 import CheckSettings from "./CheckSettings";
+import EstimateBoard from "./EstimateBoard";
 import StorageWarning from "./StorageWarning";
 import { useScan } from "./useScan";
 import { ScoreRing } from "./ui";
@@ -115,7 +116,8 @@ export default function ProjectView({ id }: { id: string }) {
   // Pasted and automatic answers are kept apart; each mode scores only its own, and only for current questions.
   const runs = useMemo(() => {
     if (!project) return [];
-    if (project.mode === "paste") return modeRuns(project);
+    // Estimate mode has no answers of its own; the other tabs show the real ones the check holds.
+    if (project.mode !== "auto") return modeRuns(project);
     const live = new Set(prompts);
     const prevAuto = allRuns.filter((r) => r.via !== "paste");
     return (running ? autoRunsAfter(scan, prevAuto) : prevAuto).filter((r) => live.has(r.prompt));
@@ -141,6 +143,8 @@ export default function ProjectView({ id }: { id: string }) {
   const anyDemo = list.some((x) => x.demo && picked.includes(x.id));
   const jobs = analysis.prompts.length * picked.length * samples + (memory ? analysis.prompts.length * picked.filter((x) => x !== "deepseek").length : 0);
   const hasResults = runs.some((r) => r.ok);
+  const estimating = project.mode === "estimate";
+  const est = estimating ? projectEstimate(project) : null;
   const answersFor = (q: string) => allRuns.filter((r) => r.prompt === q && (project.mode === "paste" ? r.via === "paste" : r.via !== "paste")).length;
 
   const onQuestions = (next: string[], change?: QuestionChange | "replace-all") => update((cur) => {
@@ -164,7 +168,7 @@ export default function ProjectView({ id }: { id: string }) {
       className={`rounded-2xl border p-5 text-left transition ${project.mode === m ? "border-ink bg-white shadow-[0_0_0_1px_var(--color-ink)]" : "border-line bg-white hover:border-[#c9cdd4]"} disabled:cursor-not-allowed disabled:opacity-50`}>
       <div className="flex items-center justify-between gap-3">
         <span className="font-semibold">{title}</span>
-        <span className={`chip ${m === "paste" ? "!bg-sky-50 !text-sky-800" : ""}`}>{badge}</span>
+        <span className={`chip ${m === "paste" ? "!bg-sky-50 !text-sky-800" : m === "estimate" ? "!bg-amber-50 !text-warn" : ""}`}>{badge}</span>
       </div>
       <p className="mt-2 text-sm text-muted">{body}</p>
     </button>
@@ -191,14 +195,15 @@ export default function ProjectView({ id }: { id: string }) {
       {saveFailed && <StorageWarning />}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <ScoreRing score={hasResults ? summary.score : null} size={64} />
+          <ScoreRing score={estimating ? est?.score ?? null : hasResults ? summary.score : null} size={64} />
           <div className="min-w-0">
             <h1 className="truncate font-display text-3xl tracking-tight">{p.name}</h1>
             {siteHref ? <a href={siteHref} target="_blank" rel={EXTERNAL_REL} className="text-sm text-muted hover:underline">{p.domain} ↗</a> : <span className="text-sm text-muted">{p.domain}</span>}
+            {estimating && est?.score != null && <span className="chip ml-2 !bg-amber-50 !text-warn">Estimated score</span>}
           </div>
         </div>
         <div className="no-print flex flex-wrap gap-2 self-start sm:self-auto">
-          {hasResults && <button type="button" className="btn btn-ghost" onClick={() => window.print()} title="Opens the print dialog. Choose “Save as PDF” as the printer.">Save as PDF</button>}
+          {(hasResults || est?.score != null) && <button type="button" className="btn btn-ghost" onClick={() => window.print()} title="Opens the print dialog. Choose “Save as PDF” as the printer.">Save as PDF</button>}
           <Link href={`/app/new?url=${encodeURIComponent(p.url)}&reread=1`} className="btn btn-ghost" aria-disabled={running} onClick={(e) => running && e.preventDefault()}>Re-read website</Link>
         </div>
       </div>
@@ -221,9 +226,10 @@ export default function ProjectView({ id }: { id: string }) {
             <section className="space-y-4">
               <h2 className="text-lg font-semibold">How should we get the answers?</h2>
               {running && <p className="text-sm text-muted" role="status">The AIs are being asked automatically. Stop the scan on the Answers tab to switch.</p>}
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {modeCard("paste", "Ask in your own accounts", "Open each question in ChatGPT, Claude, Gemini and DeepSeek (free plans work) and paste the answers back. About 20 minutes.", "Free")}
                 {modeCard("auto", "Ask automatically", realKeys ? `Surfaced asks ${realKeys} connected AI${realKeys > 1 ? "s" : ""} through their APIs, several times each. About 3 minutes.` : providers === null ? "Checking which AIs are connected…" : "Not available yet: automatic checks need accounts and API keys on the server. Free mode works now.", realKeys ? "Uses API credits" : "Not available")}
+                {modeCard("estimate", "Estimate from the pages AIs read", "No AI is asked. Surfaced reads the pages AIs lean on for your questions and estimates how often you'd be named. Quick, free and approximate; your saved answers stay as they are.", "Experimental")}
               </div>
               <button type="button" className="btn btn-primary" onClick={() => go("answers")} disabled={!analysis.prompts.length}>Continue to answers →</button>
             </section>
@@ -232,7 +238,10 @@ export default function ProjectView({ id }: { id: string }) {
 
         {tab === "answers" && (
           <>
-            {project.mode === "paste" ? (
+            {estimating ? (
+              <EstimateBoard profile={p} prompts={analysis.prompts} runs={allRuns} added={project.evidence ?? {}} report={project.estimate}
+                onAdded={(evidence) => update({ evidence })} onReport={(estimate) => update({ estimate })} />
+            ) : project.mode === "paste" ? (
               <PasteBoard profile={p} prompts={analysis.prompts} runs={allRuns} onRuns={(next) => update({ runs: next })} />
             ) : (
               <section className="card space-y-4 p-5">
@@ -275,12 +284,14 @@ export default function ProjectView({ id }: { id: string }) {
               </section>
             )}
 
-            {(hasResults || running) ? (
+            {estimating ? (
+              hasResults && <p className="rounded-2xl border border-dashed border-line p-5 text-sm text-muted">This check also has {runs.filter((r) => r.ok).length} real answer{runs.filter((r) => r.ok).length === 1 ? "" : "s"}. They are untouched: switch the mode on the Questions tab to see their score.</p>
+            ) : (hasResults || running) ? (
               <Results profile={p} runs={runs} total={scan.total} running={running} summary={summary} providers={list.length ? list : ALL.map((x) => ({ id: x, label: x, searchCapable: true }))} demo={(anyDemo && project.mode === "auto") || runs.some((r) => r.demo)} />
             ) : (
               <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">Your score appears here as answers come in.</p>
             )}
-            {hasResults && !running && (
+            {(estimating ? est?.score != null : hasResults) && !running && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-ink p-5 text-white">
                 <p className="text-sm"><span className="font-semibold">Next:</span> get listed on the sites these AIs read.</p>
                 <button type="button" className="btn bg-white !text-ink hover:bg-[#eef0f4]" onClick={() => go("listings")}>See where to submit →</button>
@@ -292,7 +303,8 @@ export default function ProjectView({ id }: { id: string }) {
         {tab === "overview" && (
           <Overview profile={p} runs={runs} prompts={analysis.prompts} summary={summary} checks={analysis.checks} cited={project.cited}
             submitted={submittedCount(project.id)}
-            expected={analysis.prompts.length * (project.mode === "paste" ? ALL.length : Math.max(1, picked.length) * samples)}
+            expected={estimating ? 0 : analysis.prompts.length * (project.mode === "paste" ? ALL.length : Math.max(1, picked.length) * samples)}
+            estimate={est ?? undefined}
             onGo={(t) => go(t, true)} />
         )}
         {tab === "competitors" && <Competitors profile={p} runs={runs} />}

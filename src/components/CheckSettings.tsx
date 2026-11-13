@@ -44,7 +44,7 @@ export default function CheckSettings({ project, locked }: { project: Project; l
           <dt className="text-muted">Website</dt><dd>{p.domain}</dd>
           <dt className="text-muted">Questions</dt><dd>{project.analysis.prompts.length}</dd>
           <dt className="text-muted">Saved answers</dt><dd>{answers}</dd>
-          <dt className="text-muted">Answers from</dt><dd>{project.mode === "paste" ? "Your own AI accounts (pasted)" : "Automatic checks"}</dd>
+          <dt className="text-muted">Answers from</dt><dd>{project.mode === "paste" ? "Your own AI accounts (pasted)" : project.mode === "estimate" ? "Estimate from pages (experimental)" : "Automatic checks"}</dd>
           <dt className="text-muted">Created</dt><dd>{when(project.createdAt)}</dd>
           <dt className="text-muted">Last changed</dt><dd>{when(project.updatedAt)}</dd>
         </dl>

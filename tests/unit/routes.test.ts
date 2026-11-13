@@ -158,3 +158,36 @@ describe("POST /api/plan (golden ranking)", async () => {
     expect(data.destinations.slice(0, 10).map((d) => d.slug)).toMatchSnapshot();
   });
 });
+
+describe("POST /api/estimate", async () => {
+  const { POST } = await import("@/app/api/estimate/route");
+  const body = (urls: string[]) => ({ urls, brand: { name: "Acme", aliases: [], domain: "acme.com" }, competitors: ["Rival"] });
+
+  it("reads the evidence pages with the crawler, cleaned and capped, and asks no AI", async () => {
+    checkCitedPages.mockImplementation(async (urls: string[]) => urls.map((url) => ({ url, status: "checked" })));
+    const urls = ["https://b.com/1?utm_source=x", "https://b.com/1", "javascript:alert(1)", ...Array.from({ length: 40 }, (_, i) => `https://c.com/${i}`)];
+    const res = await POST(post("/api/estimate", body(urls)));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.limit).toBe(20);
+    expect(data.pages).toHaveLength(20);
+    const sent = checkCitedPages.mock.calls[0][0] as string[];
+    expect(sent[0]).toBe("https://b.com/1");
+    expect(new Set(sent).size).toBe(20);
+    expect(checkCitedPages.mock.calls[0][1]).toEqual({ name: "Acme", aliases: [], domain: "acme.com" });
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("refuses bad input and unknown fields", async () => {
+    expect((await POST(post("/api/estimate", body(["ftp://x.com/a"])))).status).toBe(400);
+    expect((await POST(post("/api/estimate", { ...body(["https://b.com/"]), extra: 1 }))).status).toBe(400);
+    expect((await POST(post("/api/estimate", body([])))).status).toBe(400);
+    expect(checkCitedPages).not.toHaveBeenCalled();
+  });
+
+  it("is rate limited", async () => {
+    checkCitedPages.mockResolvedValue([]);
+    for (let i = 0; i < 6; i++) expect((await POST(post("/api/estimate", body(["https://b.com/"])))).status).toBe(200);
+    expect((await POST(post("/api/estimate", body(["https://b.com/"])))).status).toBe(429);
+  });
+});

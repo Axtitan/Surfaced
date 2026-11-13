@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { citedUrls, gapSummary } from "@/lib/citations";
 import { citationRate, interval, type summarise } from "@/lib/score";
 import type { Check, CitedReport, Profile, Run } from "@/lib/types";
+import type { CheckEstimate } from "@/lib/estimate";
 import { AI_NAME } from "@/lib/ais";
 
 /* The first tab of a check (§16.1): where things stand and the few things worth doing next, each linking to the tab
@@ -24,12 +25,14 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
   );
 }
 
-export default function Overview({ profile, runs, prompts, summary, checks, cited, submitted, expected, onGo }: {
+export default function Overview({ profile, runs, prompts, summary, checks, cited, submitted, expected, estimate, onGo }: {
   profile: Profile; runs: Run[]; prompts: string[]; summary: Summary; checks: Check[]; cited?: CitedReport;
   /** Listings marked submitted or live. */
   submitted: number;
   /** Answers a complete free check would have (questions × AIs). */
   expected: number;
+  /** Set in estimate mode: the estimate is shown first, and always labelled as one. */
+  estimate?: CheckEstimate;
   onGo: (t: OverviewTab) => void;
 }) {
   const scored = summary.byProvider.filter((p) => p.runs);
@@ -53,6 +56,35 @@ export default function Overview({ profile, runs, prompts, summary, checks, cite
   steps.push({ text: submitted ? `Keep going with listings: ${submitted} submitted so far.` : "Get listed on the sites AIs read, starting with the top of your list.", action: "Open the list", tab: "listings" });
   if (!profile.competitors.length) steps.push({ text: "Add a few competitors to compare your share of the answers with theirs.", action: "Add competitors", tab: "questions" });
 
+  const estimateBlock = estimate && (
+    <section aria-labelledby="ov-est" className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id="ov-est" className="text-lg font-semibold">Estimated visibility</h2>
+        <span className="chip !bg-amber-50 !text-warn">Experimental</span>
+      </div>
+      {estimate.score != null ? (
+        <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Estimate" value={`~${estimate.score}`} note={`Likely ${estimate.lo}–${estimate.hi}`} />
+          <Stat label="Questions estimated" value={`${estimate.estimated} of ${prompts.length}`} />
+          <Stat label="Pages read" value={`${estimate.pagesRead}`} note={estimate.unread ? `${estimate.unread} more to read` : undefined} />
+          <Stat label="Based on" value="Pages" note="no AI was asked" />
+        </dl>
+      ) : (
+        <p className="text-sm text-muted">No estimate yet. Run it on the Answers tab: Surfaced reads the pages AIs lean on for your questions and estimates how often they&apos;d name {profile.name}.</p>
+      )}
+      <button type="button" className="btn btn-ghost !px-3 !py-1.5 !text-sm" onClick={() => onGo("answers")}>{estimate.score != null ? "Open the estimate" : "Run the estimate"}</button>
+    </section>
+  );
+
+  if (!answered && estimate) {
+    return (
+      <div className="space-y-6">
+        {estimateBlock}
+        {failing.length > 0 && <p className="text-sm">{failing.length} site issue{failing.length === 1 ? "" : "s"} to fix. <button type="button" className="font-medium underline" onClick={() => onGo("site")}>See site fixes</button></p>}
+      </div>
+    );
+  }
+
   if (!answered) {
     return (
       <section className="card p-6 sm:p-8">
@@ -72,8 +104,9 @@ export default function Overview({ profile, runs, prompts, summary, checks, cite
 
   return (
     <div className="space-y-6">
+      {estimateBlock}
       <section aria-labelledby="ov-where" className="space-y-3">
-        <h2 id="ov-where" className="text-lg font-semibold">Where you stand</h2>
+        <h2 id="ov-where" className="text-lg font-semibold">{estimate ? "Where you stand in your real answers" : "Where you stand"}</h2>
         <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="Visibility" value={`${summary.score}`} note={n ? `Likely ${Math.round(lo * 100)}–${Math.round(hi * 100)}, from ${n} answer${n === 1 ? "" : "s"}` : undefined} />
           <Stat label="Named in" value={`${k} of ${n}`} note="answers" />

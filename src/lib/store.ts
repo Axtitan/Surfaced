@@ -3,10 +3,19 @@
 import type { Analysis, CitedReport, Run } from "./types";
 import { ALL_AIS } from "./ais";
 import { summarise } from "./score";
+import { estimateCheck, type EstimateReport } from "./estimate";
 
-export type AnswerMode = "paste" | "auto";
-export type Project = { id: string; analysis: Analysis; runs: Run[]; mode: AnswerMode; createdAt: number; updatedAt: number; cited?: CitedReport };
-export type ProjectMeta = { id: string; name: string; domain: string; score: number | null; answers: number; updatedAt: number };
+/** paste and auto collect real answers. estimate (experimental) asks no AI: it predicts from pages, and keeps its own
+    report so it never touches saved answers. */
+export type AnswerMode = "paste" | "auto" | "estimate";
+export type Project = {
+  id: string; analysis: Analysis; runs: Run[]; mode: AnswerMode; createdAt: number; updatedAt: number; cited?: CitedReport;
+  /** Estimate mode: the pages read so far, and pages the user added as evidence for each question. */
+  estimate?: EstimateReport;
+  evidence?: Record<string, string[]>;
+};
+/** `estimated` marks a score that came from estimate mode rather than real answers. */
+export type ProjectMeta = { id: string; name: string; domain: string; score: number | null; answers: number; updatedAt: number; estimated?: boolean };
 
 const INDEX = "surfaced:projects";
 const key = (id: string) => `surfaced:project:${id}`;
@@ -21,8 +30,16 @@ export const projectId = (domain: string) => domain.toLowerCase().replace(/^www\
 /** The answers that count for the project's current mode (pasted vs automatic), for questions still in the list (F-11). */
 export const modeRuns = (p: Pick<Project, "runs" | "mode"> & { analysis?: Pick<Analysis, "prompts"> }) => {
   const live = p.analysis ? new Set(p.analysis.prompts) : null;
-  return p.runs.filter((r) => (p.mode === "paste" ? r.via === "paste" : r.via !== "paste") && (!live || live.has(r.prompt)));
+  const current = p.runs.filter((r) => !live || live.has(r.prompt));
+  const pasted = current.filter((r) => r.via === "paste"), auto = current.filter((r) => r.via !== "paste");
+  // Estimate mode has no answers of its own: the other tabs show the real ones the check has, pasted first.
+  if (p.mode === "estimate") return pasted.length ? pasted : auto;
+  return p.mode === "paste" ? pasted : auto;
 };
+
+/** The estimate for a check from everything it holds: all real answers (as evidence), added pages and pages read. */
+export const projectEstimate = (p: Pick<Project, "runs" | "analysis" | "evidence" | "estimate">) =>
+  estimateCheck({ prompts: p.analysis.prompts, runs: p.runs, added: p.evidence, pages: p.estimate?.pages, competitors: p.analysis.profile.competitors });
 
 export function scoreOf(runs: Run[]) {
   const ok = runs.filter((r) => r.ok);
@@ -53,7 +70,11 @@ export function getProject(id: string): Project | null {
 export function saveProject(p: Project) {
   const ok = write(key(p.id), p);
   const mine = modeRuns(p);
-  const meta: ProjectMeta = { id: p.id, name: p.analysis.profile.name, domain: p.analysis.profile.domain, score: scoreOf(mine), answers: mine.filter((r) => r.ok).length, updatedAt: p.updatedAt };
+  const estimated = p.mode === "estimate";
+  const meta: ProjectMeta = {
+    id: p.id, name: p.analysis.profile.name, domain: p.analysis.profile.domain, answers: mine.filter((r) => r.ok).length, updatedAt: p.updatedAt,
+    score: estimated ? projectEstimate(p).score : scoreOf(mine), ...(estimated ? { estimated: true } : {}),
+  };
   write(INDEX, [meta, ...read<ProjectMeta[]>(INDEX, []).filter((m) => m.id !== p.id)]);
   window.dispatchEvent(new Event(CHANGED));
   return ok;
