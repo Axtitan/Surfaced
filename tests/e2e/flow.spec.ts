@@ -110,3 +110,58 @@ test("check tabs: overview, cited pages, listing verification, print view and de
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.getByRole("link", { name: "Brightloom", exact: true })).toHaveCount(0);
 });
+
+test("estimate mode: an estimate from pages that leaves saved answers alone", async ({ page }) => {
+  await startCheck(page);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Brightloom", { timeout: 20_000 });
+
+  // The page reader is mocked: one page names the product, one doesn't.
+  let asked: string[] = [];
+  await page.route("**/api/estimate", async (r) => {
+    asked = (r.request().postDataJSON() as { urls: string[] }).urls;
+    await r.fulfill({ json: { at: Date.now(), limit: 20, pages: asked.map((url, i) => ({
+      url, domain: new URL(url).hostname, title: `Page ${i + 1}`, status: "checked", you: i === 0, linksYou: false, competitors: ["Ledgerleaf"],
+    })) } });
+  });
+
+  // A real pasted answer first, so there is something that must not change.
+  await page.getByRole("tab", { name: /answers/i }).click();
+  const answer = "1. **Ledgerleaf**\n2. **Brightloom** is simple\nSee https://reviews.example/best-invoicing";
+  await page.getByRole("textbox", { name: "ChatGPT's answer" }).fill(answer);
+  await page.getByRole("button", { name: /save and next/i }).click();
+
+  // Switch to estimate mode.
+  await page.getByRole("tab", { name: "Questions" }).click();
+  await page.getByRole("button", { name: /estimate from the pages ais read/i }).click();
+  await page.getByRole("button", { name: /continue to answers/i }).click();
+  await expect(page.getByRole("heading", { name: "Estimate without asking the AIs" })).toBeVisible();
+  await expect(page.getByText(/also has 1 real answer/i)).toBeVisible();
+
+  // Add a page for the second question, then run.
+  await page.getByRole("button", { name: /pages and evidence|add pages/i }).nth(1).click();
+  await page.getByRole("textbox", { name: /add pages that rank/i }).fill("https://lists.example/top-apps\nnot a link");
+  await page.getByRole("button", { name: "Add pages", exact: true }).click();
+  await expect(page.getByText(/1 page added/)).toBeVisible();
+  await page.getByRole("button", { name: "Run the estimate" }).click();
+  await expect(page.getByText(/estimated visibility, likely/)).toBeVisible();
+  expect(asked.sort()).toEqual(["https://lists.example/top-apps", "https://reviews.example/best-invoicing"]);
+  await expect(page.getByText(/compared with your real answers/i)).toBeVisible();
+  await expect(page.getByText("Estimated score")).toBeVisible();
+
+  // It survives a reload and is marked as an estimate on the dashboard.
+  await page.reload();
+  await expect(page.getByText(/estimated visibility, likely/)).toBeVisible();
+  await page.goto("/app");
+  await expect(page.getByRole("main").getByText("Estimated score")).toBeVisible();
+
+  // Back in paste mode the saved answer is exactly as it was.
+  await page.goto(`/app/p/${ANALYSIS.profile.domain}#questions`);
+  await page.getByRole("button", { name: /ask in your own accounts/i }).click();
+  await page.getByRole("tab", { name: /answers/i }).click();
+  await expect(page.getByRole("textbox", { name: "ChatGPT's answer" })).toHaveValue(answer);
+  await expect(page.getByText("1 of 12 answers")).toBeVisible();
+  const saved = await page.evaluate((id) => JSON.parse(localStorage.getItem(`surfaced:project:${id}`)!), ANALYSIS.profile.domain);
+  expect(saved.runs).toHaveLength(1);
+  expect(saved.runs[0]).toMatchObject({ via: "paste", provider: "chatgpt", mentioned: true });
+  expect(saved.estimate.pages).toHaveLength(2);
+});

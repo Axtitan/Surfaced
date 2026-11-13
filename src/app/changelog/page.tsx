@@ -8,6 +8,11 @@ export const metadata: Metadata = {
 };
 
 const ENTRIES = [
+  { date: "2026-11-13", title: "Estimate mode (experimental)", items: [
+    "A third way to get a score: no AI is asked. Surfaced reads the pages AIs lean on for your questions and estimates how often you'd be named, with a likely range.",
+    "Uses the pages your saved answers cited, or pages you add for a question. When a check has real answers too, the estimate is compared with them.",
+    "Estimates are always labelled, and never change or replace your saved answers.",
+  ] },
   { date: "2026-11-12", title: "Cited pages, an overview and PDF reports", items: [
     "Cited pages: see which pages the AIs cite, which of them name you, and which name your competitors. Submit or pitch the ones you're missing from.",
     "Overview tab: your score with its likely range, where you're named, and what to do next.",

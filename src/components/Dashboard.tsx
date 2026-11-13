@@ -73,6 +73,7 @@ export default function Dashboard() {
                 <Link href={`/app/p/${m.id}`} className="font-semibold after:absolute after:inset-0">{m.name}</Link>
                 <div className="truncate text-sm text-muted">{m.domain}</div>
                 <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+                  {m.estimated && <span className="font-medium text-warn">Estimated score</span>}
                   <span>{m.answers ? `${m.answers} answers` : "Not asked yet"}</span>
                   <span>{sub} listing{sub === 1 ? "" : "s"} submitted</span>
                   <span>Updated <time dateTime={new Date(m.updatedAt).toISOString()} title={new Date(m.updatedAt).toLocaleString()}>{ago(m.updatedAt)}</time></span>

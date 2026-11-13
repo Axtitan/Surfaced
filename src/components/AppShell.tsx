@@ -52,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <>
               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-[#eceef1] text-xs font-semibold uppercase text-ink">{m.name.slice(0, 1)}</span>
               <span className="min-w-0 flex-1 truncate">{m.name}</span>
-              {m.score != null && <span className="text-xs tabular-nums text-muted">{m.score}</span>}
+              {m.score != null && <span className="text-xs tabular-nums text-muted" title={m.estimated ? "Estimated score" : undefined}>{m.estimated ? "~" : ""}{m.score}</span>}
             </>
           )))}
         </div>
