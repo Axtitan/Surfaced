@@ -39,6 +39,9 @@ describe("cleaning model output", () => {
   });
   it("drops competitor names that are links, the brand, or too long", () => {
     expect(cleanCompetitors(["Foo", "https://bar.com", "Acme", "x".repeat(61), "foo"], brand)).toEqual(["Foo"]);
+    // The brand in lower case is still the brand here: questions and competitors must never name it in any spelling.
+    expect(cleanCompetitors(["acme", "Bar"], brand)).toEqual(["Bar"]);
+    expect(cleanQuestions(["is acme worth paying for?"], brand)).toEqual([]);
   });
   it("strips links from short fields and empties instruction-like text", () => {
     expect(cleanField("Small teams https://evil.example see", 50)).toBe("Small teams see");

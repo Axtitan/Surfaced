@@ -4,6 +4,7 @@ import type { Analysis, CitedReport, Run } from "./types";
 import { ALL_AIS } from "./ais";
 import { summarise } from "./score";
 import { estimateCheck, type EstimateReport } from "./estimate";
+import { JUDGE_VERSION, judge } from "./match";
 
 /** paste and auto collect real answers. estimate (experimental) asks no AI: it predicts from pages, and keeps its own
     report so it never touches saved answers. */
@@ -13,6 +14,10 @@ export type Project = {
   /** Estimate mode: the pages read so far, and pages the user added as evidence for each question. */
   estimate?: EstimateReport;
   evidence?: Record<string, string[]>;
+  /** The JUDGE_VERSION the saved answers were last judged with. Missing means version 1. */
+  judged?: number;
+  /** Set when saved answers were re-judged and some verdicts changed, until the user dismisses the notice. */
+  rechecked?: { answers: number; changed: number };
 };
 /** `estimated` marks a score that came from estimate mode rather than real answers. */
 export type ProjectMeta = { id: string; name: string; domain: string; score: number | null; answers: number; updatedAt: number; estimated?: boolean };
@@ -48,7 +53,38 @@ export function scoreOf(runs: Run[]) {
   return summarise(runs, used).score;
 }
 
+/** Judges every saved answer again with the current matcher. Only the verdict fields change; the answers themselves
+    don't. Returns the project unchanged if it was already judged with this version. */
+export function rejudge(p: Project): Project {
+  if ((p.judged ?? 1) >= JUDGE_VERSION) return p;
+  const { name, aliases, domain } = p.analysis.profile;
+  const brand = { name, aliases, domain };
+  let answers = 0, changed = 0;
+  const runs = p.runs.map((r) => {
+    if (!r.ok || !r.text) return r;
+    answers++;
+    const v = judge(brand, r.text, r.sources.map((s) => s.domain));
+    if (v.mentioned !== r.mentioned || v.rank !== r.rank) changed++;
+    return { ...r, mentioned: v.mentioned, cited: v.cited, rank: v.rank, evidence: v.evidence, others: v.others };
+  });
+  return { ...p, runs, judged: JUDGE_VERSION, ...(changed ? { rechecked: { answers, changed: changed + (p.rechecked?.changed ?? 0) } } : {}) };
+}
+
+const JUDGED = "surfaced:judged";
+
+/** Re-judges every saved check once after the judge changes, so the dashboard's scores are current too. Writes quietly:
+    it runs while pages read the store, so it mustn't announce a change. */
+function rejudgeAll() {
+  if (read<number>(JUDGED, 1) >= JUDGE_VERSION) return;
+  for (const m of read<ProjectMeta[]>(INDEX, [])) {
+    const p = read<Project | null>(key(m.id), null);
+    if (p && (p.judged ?? 1) < JUDGE_VERSION) persist(rejudge(p));
+  }
+  write(JUDGED, JUDGE_VERSION);
+}
+
 function migrate() {
+  rejudgeAll();
   const last = read<{ analysis?: Analysis; runs?: Run[]; at?: number } | null>("surfaced:last", null);
   if (!last?.analysis) return;
   try { localStorage.removeItem("surfaced:last"); } catch { /* ignore */ }
@@ -64,10 +100,16 @@ export function listProjects(): ProjectMeta[] {
 
 export function getProject(id: string): Project | null {
   migrate();
-  return read<Project | null>(key(id), null);
+  const p = read<Project | null>(key(id), null);
+  if (!p || (p.judged ?? 1) >= JUDGE_VERSION) return p;
+  // A check saved by an older version that the sweep didn't reach (imported, or in another tab).
+  const fresh = rejudge(p);
+  persist(fresh);
+  return fresh;
 }
 
-export function saveProject(p: Project) {
+/** Writes a project and its summary in the index. Returns false if storage is full. */
+function persist(p: Project) {
   const ok = write(key(p.id), p);
   const mine = modeRuns(p);
   const estimated = p.mode === "estimate";
@@ -76,6 +118,12 @@ export function saveProject(p: Project) {
     score: estimated ? projectEstimate(p).score : scoreOf(mine), ...(estimated ? { estimated: true } : {}),
   };
   write(INDEX, [meta, ...read<ProjectMeta[]>(INDEX, []).filter((m) => m.id !== p.id)]);
+  return ok;
+}
+
+export function saveProject(p: Project) {
+  // Answers added since the last save were judged with the current matcher; older ones are brought up to date.
+  const ok = persist(rejudge(p));
   window.dispatchEvent(new Event(CHANGED));
   return ok;
 }
