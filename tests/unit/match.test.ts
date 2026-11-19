@@ -39,6 +39,42 @@ describe("matcher", () => {
   });
 });
 
+describe("capitalisation", () => {
+  const notion = { name: "Notion", aliases: [], domain: "notion.so" };
+
+  it("doesn't count a capitalised brand used as an ordinary word", () => {
+    expect(matcher(notion).test("The notion of a single source of truth matters.")).toBe(-1);
+    expect(matcher({ name: "Wave", aliases: [], domain: "" }).test("A new wave of tools")).toBe(-1);
+  });
+
+  it("finds the capitalised mention after an ordinary use of the word", () => {
+    const text = "The notion of a wiki is old; Notion made it pleasant.";
+    expect(text.slice(matcher(notion).test(text))).toMatch(/^Notion made/);
+  });
+
+  it("still counts all caps, the domain, and brands written in lower case", () => {
+    expect(matcher(notion).test("## NOTION")).toBe(3);
+    expect(matcher(notion).test("see notion.so/templates")).toBe(4);
+    expect(matcher({ name: "monday.com", aliases: [], domain: "" }).test("we use monday.com daily")).toBe(7);
+    expect(matcher({ name: "hey", aliases: [], domain: "" }).test("try hey for email")).toBe(4);
+  });
+
+  it("needs a capital for a domain root on its own", () => {
+    const harvest = { name: "Get Harvest", aliases: [], domain: "getharvest.com" };
+    expect(matcher(harvest).test("the harvest season")).toBe(-1);
+    expect(matcher(harvest).test("Try Harvest")).toBe(4);
+  });
+
+  it("leaves scripts without capitals alone", () => {
+    expect(matcher({ name: "東京ラーメン", aliases: [], domain: "" }).test("おすすめは東京ラーメン")).toBe(5);
+    expect(matcher({ name: "نون", aliases: [], domain: "" }).test("من نون")).toBe(3);
+  });
+
+  it("ignores capitalisation entirely when asked, for filters that must catch every spelling", () => {
+    expect(matcher(notion, { anyCase: true }).test("is notion worth it")).toBe(3);
+  });
+});
+
 describe("judge", () => {
   it("reports position in a list and who else was named", () => {
     const text = "Here are options:\n1. **Foo** - fast\n2. **Acme** - simple\n3. **Bar**: cheap";
