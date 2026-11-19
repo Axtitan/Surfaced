@@ -40,9 +40,13 @@ if (!cases.length) {
 const dir = join(process.cwd(), "evals", "judge", "private");
 mkdirSync(dir, { recursive: true });
 const out = join(dir, `pasted-${new Date().toISOString().slice(0, 10)}.json`);
-if (existsSync(out)) {
+const body = JSON.stringify({ about: "Real answers to label by hand. Set mentioned (true/false) and rank (1-based position in the answer's list, or null).", cases }, null, 2) + "\n";
+try {
+  // "wx" creates the file and fails if it already exists, in one step, so labelled work is never overwritten.
+  writeFileSync(out, body, { flag: "wx" });
+} catch (e) {
+  if (e?.code !== "EEXIST") throw e;
   console.error(`${out} already exists; label or move it first.`);
   process.exit(1);
 }
-writeFileSync(out, JSON.stringify({ about: "Real answers to label by hand. Set mentioned (true/false) and rank (1-based position in the answer's list, or null).", cases }, null, 2) + "\n");
 console.log(`Wrote ${cases.length} answers to label: ${out}`);
