@@ -6,11 +6,12 @@ import type { summarise } from "@/lib/score";
 import { jsonLd, llmsTxt } from "@/lib/fixes";
 import { track as trackEvent } from "@vercel/analytics";
 import { EXTERNAL_REL, safeHref } from "@/lib/safe-href";
+import { kitFor, kitFrom, type Kit } from "@/lib/kit";
 import ListingVerify, { type LiveEntry } from "./ListingVerify";
 
 type Summary = ReturnType<typeof summarise>;
 type Status = "todo" | "opened" | "submitted" | "live" | "rejected" | "skip";
-export type Kit = { name: string; url: string; tagline: string; shortDescription: string; longDescription: string; keywords: string; pricing: string; platforms: string; alternativeTo: string; email: string; logoUrl: string; twitter: string };
+export type { Kit };
 
 const GROUPS: { id: string; label: string; types: string[] }[] = [
   { id: "top", label: "Best first", types: [] },
@@ -27,20 +28,39 @@ const TYPE_LABEL: Record<string, string> = { directory: "Directory", "product-la
 const load = <T,>(k: string, d: T): T => { try { return JSON.parse(localStorage.getItem(k) ?? "null") ?? d; } catch { return d; } };
 const save = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
 
-function kitFrom(p: Profile): Kit {
-  return {
-    name: p.name, url: p.url, tagline: p.listing.tagline, shortDescription: p.listing.shortDescription, longDescription: p.listing.longDescription,
-    keywords: p.listing.keywords.join(", "), pricing: p.listing.pricing, platforms: p.listing.platforms.join(", "),
-    alternativeTo: p.competitors.slice(0, 5).join(", "), email: "", logoUrl: "", twitter: "",
-  };
-}
-
 function Copy({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <button type="button" className="btn btn-ghost !px-2.5 !py-1 !text-xs" aria-live="polite" onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200); } catch { /* clipboard blocked */ } }}>
       {done ? "Copied" : label}
     </button>
+  );
+}
+
+/** The kit rewritten for one destination: its limits, its format and what works there. */
+function SiteKit({ d, kit, id, onSend }: { d: PlannedDestination; kit: Kit; id: string; onSend: (k: Kit) => void }) {
+  const v = kitFor(d, kit);
+  return (
+    <div id={id} className="mt-3 space-y-3 rounded-xl border border-line bg-paper p-4">
+      <p className="text-sm font-semibold">{v.title}</p>
+      {v.fields.map((f) => {
+        const over = f.max != null && f.text.length > f.max;
+        return (
+          <div key={f.label} className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="label">{f.label}{f.max ? <span className={over ? "text-bad" : ""}> ({f.text.length}/{f.max})</span> : null}</span>
+              <Copy text={f.text} />
+            </div>
+            <p className={`whitespace-pre-wrap break-words rounded-lg border border-line bg-white p-2 text-sm ${f.area ? "" : "font-medium"}`}>{f.text || <span className="text-muted">Empty: fill it in your kit above.</span>}</p>
+          </div>
+        );
+      })}
+      {v.tips.length > 0 && <ul className="list-disc space-y-1 pl-5 text-xs text-muted">{v.tips.map((t) => <li key={t}>{t}</li>)}</ul>}
+      {v.overrides && (
+        <button type="button" className="btn btn-ghost !px-2.5 !py-1 !text-xs" onClick={() => onSend({ ...kit, ...v.overrides })}>Send this version to the extension</button>
+      )}
+      <p className="text-xs text-muted">Made from your kit; nothing is added. Edit the kit above to change it.</p>
+    </div>
   );
 }
 
@@ -65,6 +85,7 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
   const [group, setGroup] = useState("top");
   const [freeOnly, setFreeOnly] = useState(false);
   const [ext, setExt] = useState<"unknown" | "ready" | "sent">("unknown");
+  const [siteKit, setSiteKit] = useState<string | null>(null);
 
   useEffect(() => save(`surfaced:kit:${key}`, kit), [kit, key]);
   useEffect(() => save(`surfaced:track:${key}`, track), [track, key]);
@@ -207,7 +228,12 @@ export default function FixPlan({ analysis, summary, section }: { analysis: Anal
                   {d.citedByAI > 0 && <span className="chip !bg-ink !text-white">AI cites this</span>}
                 </div>
                 <p className="mt-1 truncate text-sm text-muted">{d.reasons.filter((r) => !/^DR|^Free$/.test(r)).join(" · ") || d.description}</p>
-                {safeHref(d.rules) && <a className="text-xs underline" href={safeHref(d.rules)} target="_blank" rel={EXTERNAL_REL}>Read the posting rules first</a>}
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <button type="button" className="text-xs font-medium underline" aria-expanded={siteKit === d.slug} aria-controls={`kit-${d.slug}`}
+                    onClick={() => setSiteKit((s) => (s === d.slug ? null : d.slug))}>{siteKit === d.slug ? "Hide the text" : "Text for this site"}</button>
+                  {safeHref(d.rules) && <a className="text-xs underline" href={safeHref(d.rules)} target="_blank" rel={EXTERNAL_REL}>Read the posting rules first</a>}
+                </div>
+                {siteKit === d.slug && <SiteKit d={d} kit={kit} id={`kit-${d.slug}`} onSend={(k) => window.postMessage({ source: "surfaced-app", type: "kit", kit: k }, window.location.origin)} />}
                 {(st(d.slug) === "submitted" || st(d.slug) === "live" || liveChecks[d.slug]) && (
                   <ListingVerify slug={d.slug} name={d.name} profile={p} entry={liveChecks[d.slug]}
                     onEntry={(e) => setLiveChecks((m) => ({ ...m, [d.slug]: e }))}

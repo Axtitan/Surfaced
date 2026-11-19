@@ -8,6 +8,16 @@ export const metadata: Metadata = {
 };
 
 const ENTRIES = [
+  { date: "2026-11-19", title: "Fewer false matches", items: [
+    "A brand name that's also an ordinary word (Notion, Wave, Harvest) now counts only where the answer writes it as a name, with a capital. \"The notion of…\" or \"a new wave of…\" no longer counts as being named.",
+    "Names in capitals, web addresses and brands that are written in lower case still count as before.",
+    "Answers you saved earlier are checked again the next time you open Surfaced, and scores update. If a verdict changes, the check says so.",
+  ] },
+  { date: "2026-11-17", title: "Listing text for each site", items: [
+    "Text for this site: every place on your submission list now has its own version of your listing kit, cut to that site's limits and written the way it expects: a launch post and first comment for launch sites, a one-line entry for GitHub lists, a post that says you made it for Reddit, a short pitch for newsletters and press.",
+    "Each version only rearranges and shortens what's in your kit; nothing is added. Send it to the browser extension in one click.",
+    "The free tools now answer the common questions about AI crawlers, llms.txt and structured data directly.",
+  ] },
   { date: "2026-11-13", title: "Estimate mode (experimental)", items: [
     "A third way to get a score: no AI is asked. Surfaced reads the pages AIs lean on for your questions and estimates how often you'd be named, with a likely range.",
     "Uses the pages your saved answers cited, or pages you add for a question. When a check has real answers too, the estimate is compared with them.",

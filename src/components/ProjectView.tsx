@@ -193,6 +193,15 @@ export default function ProjectView({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-8 sm:pt-8">
       {saveFailed && <StorageWarning />}
+      {project.rechecked && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-paper px-4 py-3 text-sm" role="status">
+          <p>
+            Surfaced now matches names more carefully, so it checked your {project.rechecked.answers} saved answer{project.rechecked.answers === 1 ? "" : "s"} again.{" "}
+            {project.rechecked.changed} verdict{project.rechecked.changed === 1 ? "" : "s"} changed: your name no longer counts where it&apos;s used as an ordinary word. Your score is up to date.
+          </p>
+          <button type="button" className="btn btn-ghost !px-3 !py-1 !text-xs" onClick={() => update({ rechecked: undefined })}>Dismiss</button>
+        </div>
+      )}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <ScoreRing score={estimating ? est?.score ?? null : hasResults ? summary.score : null} size={64} />

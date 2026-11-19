@@ -26,35 +26,58 @@ const GENERIC = new Set(["app", "get", "try", "use", "my", "the", "go", "hq", "w
 
 export type Brand = { name: string; aliases: string[]; domain: string };
 
-export function brandTerms(b: Brand): string[] {
-  const terms = new Set<string>();
+const UPPER = /\p{Lu}/u;
+
+/** Each term to look for, and whether a match must contain a capital letter. A name written with capitals ("Notion",
+    "Wave") only counts where the answer capitalises it too, so "the notion of" or "a new wave of" isn't a mention.
+    "WAVE" still counts. Names written all in lower case, names in scripts without capitals, and full domains match in
+    any case. A domain root on its own ("harvest" from getharvest.com) needs a capital, unless the name itself is that
+    word in lower case. */
+function termList(b: Brand): Map<string, boolean> {
+  const terms = new Map<string, boolean>();
+  const put = (t: string, cased: boolean) => terms.set(t, terms.has(t) ? terms.get(t)! && cased : cased);
   for (const t of [b.name, ...b.aliases]) {
     const n = norm(t).trim();
     if (n.length < 2) continue;
-    terms.add(n);
-    if (n.includes(" ")) { terms.add(n.replace(/\s+/g, "")); terms.add(n.replace(/\s+/g, "-")); }
+    const cased = UPPER.test(t);
+    put(n, cased);
+    if (n.includes(" ")) { put(n.replace(/\s+/g, ""), cased); put(n.replace(/\s+/g, "-"), cased); }
   }
   const d = norm(b.domain).replace(/^www\./, "");
   if (d) {
-    terms.add(d);
+    put(d, false);
     const root = d.split(".")[0].replace(/^(get|try|use|go)(?=[a-z]{4,})/, "").replace(/(app|hq)$/, "");
-    if (root.length >= 4 && !GENERIC.has(root)) terms.add(root);
+    if (root.length >= 4 && !GENERIC.has(root) && !terms.has(root)) terms.set(root, true);
   }
-  return [...terms];
+  return terms;
 }
 
-export function matcher(b: Brand) {
+export function brandTerms(b: Brand): string[] {
+  return [...termList(b).keys()];
+}
+
+/** `anyCase` ignores capitalisation entirely: for filters that must catch every spelling of the brand, such as keeping
+    it out of the questions. */
+export function matcher(b: Brand, { anyCase = false }: { anyCase?: boolean } = {}) {
   // Word boundaries are any letter or digit in any script, so a short name can't match inside a longer word.
-  const res = brandTerms(b).map((t) => NO_SPACES.test(t) ? new RegExp(esc(t), "u") : new RegExp(String.raw`(?<![\p{L}\p{N}])` + esc(t) + String.raw`(?![\p{L}\p{N}])`, "iu"));
+  const res = [...termList(b)].map(([t, cased]) => ({
+    re: NO_SPACES.test(t) ? new RegExp(esc(t), "gu") : new RegExp(String.raw`(?<![\p{L}\p{N}])` + esc(t) + String.raw`(?![\p{L}\p{N}])`, "giu"),
+    cased: cased && !anyCase,
+  }));
   const domain = norm(b.domain).replace(/^www\./, "");
   return {
     /** Index of the first mention in the original text, or -1. */
     test(text: string) {
       const { n, map } = normWithMap(text);
       let first = -1;
-      for (const re of res) {
-        const m = re.exec(n);
-        if (m && (first < 0 || m.index < first)) first = m.index;
+      for (const { re, cased } of res) {
+        re.lastIndex = 0;
+        for (let m = re.exec(n); m; m = re.exec(n)) {
+          if (first >= 0 && m.index >= first) break;
+          if (cased && !UPPER.test(text.slice(map[m.index], map[m.index + m[0].length]))) continue;
+          first = m.index;
+          break;
+        }
       }
       return first < 0 ? -1 : map[first];
     },
@@ -93,6 +116,10 @@ export function snippet(text: string, index: number) {
   const end = Math.min(text.length, endNl < 0 ? text.length : endNl, index + 220);
   return (start > 0 ? "…" : "") + text.slice(start, end).replace(/\*\*/g, "").trim() + (end < text.length ? "…" : "");
 }
+
+/** Bump when a change to the matcher or the judge changes verdicts: saved answers are re-judged once when they're next
+    read (`lib/store.ts`). 2: a capitalised name needs a capital in the answer (19 November 2026). */
+export const JUDGE_VERSION = 2;
 
 export function judge(b: Brand, text: string, sourceDomains: string[]) {
   const m = matcher(b);

@@ -20,7 +20,7 @@ export function questionProblem(q: string): string | null {
 
 /** Profile builder output: a question is kept only if it passes the checks, is 10–200 characters and doesn't name the brand. */
 export function cleanQuestions(list: string[], brand: Brand): string[] {
-  const m = matcher(brand);
+  const m = matcher(brand, { anyCase: true });
   const seen = new Set<string>();
   return list
     .map((q) => q.replace(/\s+/g, " ").trim())
@@ -30,7 +30,7 @@ export function cleanQuestions(list: string[], brand: Brand): string[] {
 
 /** Competitor names: no URLs, at most 60 characters, no instruction-like text, not the brand itself. */
 export function cleanCompetitors(list: string[], brand: Brand): string[] {
-  const m = matcher(brand);
+  const m = matcher(brand, { anyCase: true });
   const seen = new Set<string>();
   return list
     .map((c) => c.replace(/\s+/g, " ").trim())
