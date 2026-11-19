@@ -15,3 +15,6 @@ blob-report/
 # Private planning files: kept on this machine only.
 docs/
 CLAUDE.md
+
+# Real answers for the judge eval: other people's text, kept on this machine.
+evals/judge/private/

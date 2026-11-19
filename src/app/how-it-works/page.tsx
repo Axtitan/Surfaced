@@ -54,6 +54,18 @@ export default function HowItWorks() {
         <h2>5. Fixing your own site</h2>
         <p>Surfaced suggests site fixes that help AIs read you: allowing AI crawlers, adding an llms.txt file and adding structured data. The <Link href="/tools/llms-txt-generator">llms.txt generator</Link> and <Link href="/tools/json-ld-generator">JSON-LD generator</Link> are free.</p>
 
+        <h2>How is this different from SEO?</h2>
+        <p>SEO is about ranking in a list of links; AI visibility is about being named in the one answer an assistant writes. The work overlaps, but the measure and the places that matter most are different.</p>
+        <table>
+          <thead><tr><th scope="col"><span className="sr-only">Aspect</span></th><th scope="col">SEO</th><th scope="col">AI visibility</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">The goal</th><td>A high position in search results</td><td>Being named in the answer</td></tr>
+            <tr><th scope="row">What you measure</th><td>Rank and clicks for each keyword</td><td>Share of answers that name you, and your position in their lists</td></tr>
+            <tr><th scope="row">Places that matter most</th><td>Your own pages, and links to them</td><td>Comparison sites, directories, reviews and lists that name products side by side</td></tr>
+            <tr><th scope="row">How fast it moves</th><td>Weeks to months</td><td>Days for assistants that search the web; for what a model knows without searching, not until it is retrained</td></tr>
+          </tbody>
+        </table>
+
         <h2>What it can&apos;t do</h2>
         <ul>
           <li>It can&apos;t make an AI recommend you. It shows where you stand and the most direct ways in.</li>
